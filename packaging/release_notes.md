@@ -10,10 +10,12 @@
 
 ### Changes in v{{VERSION}}
 
-- Fix Graph Editor Computed Manual Ticks when applying the mode, changing the interval or minor divisions, and restoring previously saved manual settings.
-- Support CIF cell values with separated uncertainties, Jana files containing global information and a structure block, and non-ASCII chemical names in database exports.
-- Use the same selected structure for CIF editing, symmetry, diffraction simulation and user-library registration. Preserve source files, original names and other data blocks through edits and save-as.
-- Add English/Japanese guidance for manual axis ticks and CIF imports. A CIF containing multiple structures requires the intended structure to be selected in the input file.
+- Duplicate graphs using Edit → Duplicate Graph or Ctrl+D. Duplicate, rename and delete from the graph-list context menu, with Undo/Redo.
+- Fix zero-size arc errors. Resize shapes using corner handles, with Shift snapping and stable drag previews.
+- Follow window resizing, restored graph sessions and display scaling while preserving visible axis ranges.
+- Improve interactive grids, persistent downsampling and mean previews over the common X range.
+- Speed up first opening of Graph Editor, Search–Match and Peak Fitting by deferring calculation libraries and consolidating previews.
+- Update English and Japanese application and Graph Editor manuals.
 
 **Session compatibility.** Sessions saved with v0.15.2 or newer require a version that supports this format. Keep original copies when working with versions before v0.15.2.
 
@@ -50,10 +52,12 @@ MDS application code is MIT; dependencies and data retain their own licenses. MD
 
 ### v{{VERSION}}の変更点
 
-- Graph EditorのComputed Manual Ticksで、初回適用・目盛間隔や補助目盛の再編集・保存済み手動設定の復元時に発生する例外を修正しました。
-- 空白付き誤差表記、Janaの全体情報と結晶構造のブロック、データベース出力の非ASCII構造名を含むCIFに対応しました。
-- CIFの編集・空間群の取得・回折シミュレーション・ユーザーライブラリ登録で同じ構造を使用します。元ファイル・名称と他のデータブロックを保持して編集・別名保存できます。
-- 手動目盛とCIF読込の案内を日英で更新しました。結晶構造が複数含まれるCIFは、使用する構造を選んだ入力ファイルを用意してください。
+- Edit → Duplicate Graph・Ctrl+Dでグラフを複製。グラフ一覧の右クリックから複製・リネーム・削除でき、元に戻す操作にも対応しました。
+- 大きさがゼロの円弧でのエラーを修正。四隅のハンドルによる図形サイズ変更とShiftスナップに対応しました。
+- 保存グラフの読込・ウインドウサイズ変更・画面倍率変更後に、表示中の軸範囲を維持して表示を更新します。
+- グリッド表示・間引き設定の保持・共通X範囲での平均プレビューを改善しました。
+- 計算ライブラリの読み込みとプレビュー更新を整理し、Graph Editor・Search–Match・ピークフィッティングの初回表示を高速化しました。
+- アプリ・Graph Editorの日本語・英語マニュアルを更新しました。
 
 **セッションの互換性。** v0.15.2以降で保存したセッションは、この形式に対応する版で開いてください。v0.15.2より前の版を併用する場合は、元ファイルを保管してください。
 
