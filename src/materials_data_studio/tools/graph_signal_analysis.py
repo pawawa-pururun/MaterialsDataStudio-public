@@ -4,8 +4,6 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy import fft as fft_module
-from scipy import interpolate, signal
 
 from materials_data_studio.tools.graph_spectral_analysis import SPECTRAL, spectral
 from materials_data_studio.tools.graph_waves import make_wave
@@ -21,11 +19,14 @@ PROCESSING = {
     "filter": ("Filter", ("FIR coefficients", "IIR numerator / denominator")),
     "ifft": ("Inverse FFT", ("Complex spectrum (rotated)", "Complex spectrum (unrotated)", "Real half-spectrum")),
 }
-fft: Any = fft_module
 
 
 def process(kind: str, waves: list[PxpWave], destination: str, *, method: int = 0,
             count: int = 201, remove_dc: bool = False) -> PxpWave:
+    from scipy import fft as fft_module
+    from scipy import interpolate, signal
+
+    fft: Any = fft_module
     if kind not in PROCESSING or not 0 <= method < len(PROCESSING[kind][1]):
         raise ValueError("Unknown processing method")
     if not waves or any(w.data.ndim != 1 or w.data.dtype.kind not in "biufc" or not w.data.size or not np.isfinite(w.data).all() for w in waves):

@@ -4,13 +4,15 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from scipy.optimize import linear_sum_assignment
 
 
 class PreparedPeakScore:
     """Keep the public matcher's mathematics, boundaries and grouping semantics."""
 
     def __init__(self, peaks, settings):
+        from scipy.optimize import linear_sum_assignment
+
+        self._assign = linear_sum_assignment
         settings.validate()
         if not all(math.isfinite(float(p["position"])) and math.isfinite(float(p["intensity"])) for p in peaks):
             raise ValueError("Observed peaks must be finite.")
@@ -69,7 +71,7 @@ class PreparedPeakScore:
         valid = np.abs(delta) <= s.tolerance
         agreement = np.exp(-0.5 * (delta / s.tolerance) ** 2)
         weights = np.sqrt(oi[:, None] * pi[None, :]) * agreement * valid
-        rows, cols = linear_sum_assignment(weights, maximize=True)
+        rows, cols = self._assign(weights, maximize=True)
         pairs = [(int(r), int(c)) for r, c in zip(rows, cols, strict=True) if valid[r, c] and weights[r, c] > 0]
         matched_o, matched_p = {r for r, _ in pairs}, {c for _, c in pairs}
         pair_weights = [math.sqrt(oi[r] * pi[c]) for r, c in pairs]

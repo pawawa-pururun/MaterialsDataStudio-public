@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy import stats
 
 # Labels shown in the Statistics menu, with deliberately bounded method choices.
 STATISTICS = {
@@ -36,6 +35,8 @@ def real_array(values: Any) -> np.ndarray:
 def statistics(kind: str, arrays: list[Any], *, method: int = 0, alpha: float = .05,
                tail: int = 4, repeats: int = 2000, seed: int = 0) -> dict[str, float]:
     """Compute a labelled report, retaining paired missing-value alignment."""
+    from scipy import stats
+
     if kind not in STATISTICS or not 0 <= method < len(STATISTICS[kind][1]):
         raise ValueError("Unknown statistical test or method")
     if not np.isfinite(alpha) or not 0 < alpha < 1 or tail not in {1, 2, 4}:

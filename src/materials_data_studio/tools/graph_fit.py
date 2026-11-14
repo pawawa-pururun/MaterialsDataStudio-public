@@ -8,8 +8,6 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import curve_fit
-from scipy.special import expit, voigt_profile
 
 from materials_data_studio.tools.graph_document import EditableGraphDocument
 
@@ -105,6 +103,9 @@ def quick_fit(x: Any, y: Any, model: str, lower: float | None = None, upper: flo
               sigma: Any = None, cancel: Any = None, *, initial_values: Any = None,
               held: tuple[int, ...] = (), selected: Any = None,
               curve_range: tuple[float, float] | None = None) -> FitResult:
+    from scipy.optimize import curve_fit
+    from scipy.special import expit, voigt_profile
+
     x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
     if x.ndim != 1 or x.shape != y.shape:
         raise ValueError("Quick Fit requires matching 1D X and Y waves.")

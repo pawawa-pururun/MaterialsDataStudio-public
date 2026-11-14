@@ -48,6 +48,9 @@ The upper toolbar provides Open, Save, Import, Export Data, Export Figure, Send 
 
 The original PXP is not changed. Use **MDSG** to resume editing, **H5XP** to transfer to Igor, and **Export Figure** for a finished image.
 Reopen saved work through **File > Open Graph Document (.mdsg / .h5xp)**.
+The graph preview automatically fits the available canvas when opening saved work,
+resizing the window or adjusting panel dividers. Fonts, markers and annotations scale
+with the preview. Graph dimensions for figure export are set in Properties.
 Save Session in the main window does not save an independent Graph Editor.
 Undo/Redo (Ctrl+Z/Ctrl+Y) applies to this editor. `[Modified]` indicates unsaved edits.
 
@@ -156,6 +159,15 @@ Density normalization includes finite observations outside explicit bins, so a t
 Use **Graph > New Graph…** to choose a plot type, Y waves, X wave (or scaling), axes and name. Multiple Y waves can be selected.
 **Append Traces / Images…** adds to the current graph. **Replace X / Y Waves…** changes data while retaining styles.
 **Reorder Traces…** lists BACK at the top and FRONT at the bottom.
+
+Select a graph in the tree and choose **Edit > Duplicate Graph** or press **Ctrl+D**.
+The new graph keeps its traces, axes, annotations, drawings and inset graphs.
+Its appearance can be edited independently. Both graphs use the same working waves,
+so editing a wave updates both graphs. Undo removes the copy in one step.
+
+Right-click a graph in the left **Graphs** list for **Duplicate Graph**, **Rename Graph…**
+or **Delete Graph…**. Renaming updates inset and Layout references. Deleting asks for
+confirmation and includes that graph's inset graphs. Undo/Redo also applies to these operations.
 
 ![Create a graph from waves](screenshots/44_graph_new_graph.png)
 
@@ -276,6 +288,12 @@ Pointer selects and moves objects. Selection outlines and handles are excluded f
 ![Bezier node and tangent handles with synthetic data](screenshots/54_graph_bezier_handles.png)
 
 Double-click or right-click drawings to edit coordinates/styles. Use Cut / Copy / Clear / Duplicate or **Edit > Paste Drawing**.
+
+In Pointer mode, select a shape and drag any of its four corner handles to resize it.
+The opposite corner stays fixed. Hold **Shift** to snap the moving corner to the
+10-pixel drawing grid, or **Alt** to temporarily bypass snapping. **Grid > Snap**
+also enables snapping during resizing. Esc cancels the gesture and Undo restores
+the previous size. Text drawings retain their font-size controls.
 Layer / Arrange changes stacking; Grid controls guides/snap. Shift constrains moves horizontally/vertically; Alt temporarily bypasses snap.
 Drag labels, legends, textboxes and ColorScales to move them. A completed move is one Undo step.
 Reflection-index labels can also be dragged. They retain their peak attachment and store their new position relative to that peak.

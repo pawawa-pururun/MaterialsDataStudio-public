@@ -6,9 +6,6 @@ from dataclasses import asdict, dataclass
 from threading import Event
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
-from scipy.optimize import least_squares
-from scipy.signal import find_peaks, peak_widths
 
 from materials_data_studio.modules.xrd.background import arpls_background
 from materials_data_studio.modules.xrd.radiation import (
@@ -49,6 +46,10 @@ class DetectionSettings:
 
 def analyze_peaks(x, y, settings: DetectionSettings, *, limit=500, stop: Event | None = None) -> dict:
     """Return fitted physical reflections plus a compact reproducible baseline."""
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.optimize import least_squares
+    from scipy.signal import find_peaks, peak_widths
+
     settings.validate()
     stop = stop or Event()
     x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
