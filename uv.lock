@@ -677,7 +677,7 @@ wheels = [
 
 [[package]]
 name = "materials-data-studio"
-version = "0.15.3"
+version = "0.15.4"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
