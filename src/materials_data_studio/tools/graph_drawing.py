@@ -117,8 +117,14 @@ class DrawingArtist(Artist):
             if drawing.kind == "DrawOval":
                 child = Ellipse((x + width / 2, y + height / 2), width, height)
             elif drawing.kind == "DrawArc":
-                child = Arc((x + width / 2, y + height / 2), width, height,
-                            theta1=coords[4] if len(coords) > 4 else 0, theta2=coords[5] if len(coords) > 5 else 180)
+                start, stop = (coords[4], coords[5]) if len(coords) > 4 else (0, 180)
+                if width == 0 or height == 0:
+                    path = MplPath.arc(start, stop).transformed(
+                        Affine2D().scale(width / 2, height / 2).translate(x + width / 2, y + height / 2)
+                    )
+                    child = PathPatch(path)
+                else:
+                    child = Arc((x + width / 2, y + height / 2), width, height, theta1=start, theta2=stop)
             elif drawing.kind == "DrawRRect":
                 child = FancyBboxPatch((x, y), width, height, boxstyle=f"round,pad=0,rounding_size={min(width, height) * drawing.round_radius}")
             else:

@@ -180,6 +180,22 @@ JA.update({'Cancel download': 'ダウンロードをキャンセル',
  'Close other running MDS instances before updating.': '別に起動しているMDSを終了してから更新してください。',
  'Could not start the update. Your work remains open. Please try again.': '更新を開始できませんでした。作業は開いたまま保持しています。再度お試しください。'})
 
+JA.update({
+    "Duplicate Graph": "グラフを複製",
+    "Resize drawing": "図形のサイズ変更",
+    "Downsample": "表示データの間引き",
+    "Average": "曲線の平均",
+    "Mean": "平均",
+    "Peak": "ピーク保持",
+    "Subsample": "一定間隔で抽出",
+    "Auto": "自動",
+    "Show X Grid": "Xグリッドを表示",
+    "Show Y Grid": "Yグリッドを表示",
+    "Average line curves over their common X range": "単調なXを持つ線曲線を共通範囲で補間平均します",
+    "Average needs two monotonic line curves with overlapping X ranges": "共通のX範囲を持つ単調な線曲線が2本以上必要です",
+})
+
+
 def tr(text: str) -> str:
     if str(create_settings().value("appearance/language", "en")) != "ja":
         return text

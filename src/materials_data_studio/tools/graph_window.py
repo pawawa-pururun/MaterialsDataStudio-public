@@ -400,8 +400,41 @@ class GraphEditorWindow(PxpViewerWindow):
         mark("graph_ready")
 
     def install_paste_action(self) -> None:
+        self.duplicate_graph_action = self.edit_menu.addAction("Duplicate Graph")
+        self.duplicate_graph_action.setShortcut("Ctrl+D")
+        self.duplicate_graph_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+        self.duplicate_graph_action.setEnabled(self.graph() is not None)
+        self.duplicate_graph_action.triggered.connect(self.duplicate_graph)
         action = self.edit_menu.addAction("Paste Drawing")
         action.triggered.connect(self.paste_drawing)
+
+    def duplicate_graph(self) -> None:
+        graph = self.graph()
+        if self.editor is None or graph is None:
+            return
+        from materials_data_studio.tools.graph_trace_dialogs import unique_name
+        before = self.editor.document.current.clone()
+        originals, names = [graph], {graph.name}
+        for parent in originals:
+            for child in before.graphs:
+                if child.host == parent.name and child.name not in names:
+                    originals.append(child)
+                    names.add(child.name)
+        used = [g.name for g in before.graphs]
+        renamed = {}
+        for original in originals:
+            renamed[original.name] = unique_name(original.name + "_copy", used)
+            used.append(renamed[original.name])
+        copies = tuple(replace(g, name=renamed[g.name], host=renamed.get(g.host, ""),
+                               host_rect=None if g is graph else g.host_rect) for g in originals)
+        after = before.clone()
+        after.graphs += copies
+        for original in originals:
+            if original.name in before.layout:
+                after.layout[renamed[original.name]] = copy.deepcopy(before.layout[original.name])
+        self._selection = "graph", copies[0].name
+        self.view_state["selected"] = self._selection
+        self.editor.commit(before, after, "Duplicate Graph")
 
     def paste_drawing(self) -> None:
         graph = self.graph()
@@ -588,6 +621,8 @@ class GraphEditorWindow(PxpViewerWindow):
 
     def _show_selection(self) -> None:
         graph = self.graph()
+        if hasattr(self, "duplicate_graph_action"):
+            self.duplicate_graph_action.setEnabled(graph is not None)
         if graph is None:
             self._rendered_state = None
             self.artist_targets = {}
@@ -1504,6 +1539,9 @@ class GraphEditorWindow(PxpViewerWindow):
             return
         if self.mode != "Pointer":
             return
+        from materials_data_studio.tools.graph_handles import begin_resize
+        if not event.dblclick and begin_resize(self, event):
+            return
         renderer = self.canvas.get_renderer()
         # Labels and annotations take precedence over underlying axes/images.
         priority = {"drawing": 0, "label": 0, "annotation": 1, "legend": 1, "colorbar": 2, "trace": 3, "axis": 4, "image": 5}
@@ -1677,7 +1715,9 @@ class GraphEditorWindow(PxpViewerWindow):
 
     def pointer_release(self, _event: Any) -> None:
         if self._bezier_drag:
-            from materials_data_studio.tools.graph_handles import finish_edit
+            from materials_data_studio.tools.graph_handles import finish_edit, move_edit
+            if "corner" in self._bezier_drag and getattr(_event, "x", None) is not None and getattr(_event, "y", None) is not None:
+                move_edit(self, _event)
             finish_edit(self)
             return
         if self._insert_drag:

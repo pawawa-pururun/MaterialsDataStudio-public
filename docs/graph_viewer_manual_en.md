@@ -157,6 +157,11 @@ Use **Graph > New Graph…** to choose a plot type, Y waves, X wave (or scaling)
 **Append Traces / Images…** adds to the current graph. **Replace X / Y Waves…** changes data while retaining styles.
 **Reorder Traces…** lists BACK at the top and FRONT at the bottom.
 
+Select a graph in the tree and choose **Edit > Duplicate Graph** or press **Ctrl+D**.
+The new graph keeps its traces, axes, annotations, drawings and inset graphs.
+Its appearance can be edited independently. Both graphs use the same working waves,
+so editing a wave updates both graphs. Undo removes the copy in one step.
+
 ![Create a graph from waves](screenshots/44_graph_new_graph.png)
 
 Right-click a trace for Browse, Edit, Hide, Remove, Duplicate, Replace Wave, Modify or Quick Fit.
@@ -276,6 +281,12 @@ Pointer selects and moves objects. Selection outlines and handles are excluded f
 ![Bezier node and tangent handles with synthetic data](screenshots/54_graph_bezier_handles.png)
 
 Double-click or right-click drawings to edit coordinates/styles. Use Cut / Copy / Clear / Duplicate or **Edit > Paste Drawing**.
+
+In Pointer mode, select a shape and drag any of its four corner handles to resize it.
+The opposite corner stays fixed. Hold **Shift** to snap the moving corner to the
+10-pixel drawing grid, or **Alt** to temporarily bypass snapping. **Grid > Snap**
+also enables snapping during resizing. Esc cancels the gesture and Undo restores
+the previous size. Text drawings retain their font-size controls.
 Layer / Arrange changes stacking; Grid controls guides/snap. Shift constrains moves horizontally/vertically; Alt temporarily bypasses snap.
 Drag labels, legends, textboxes and ColorScales to move them. A completed move is one Undo step.
 Reflection-index labels can also be dragged. They retain their peak attachment and store their new position relative to that peak.

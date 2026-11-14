@@ -197,6 +197,22 @@ right-drag zooms to a rectangular region. Right-click and choose `View All` to
 auto-scale both axes. `Plot Options > Legends` toggles the legend. Top and right
 spines and inward ticks are visible by default.
 
+Use **Grid** in the plot's right-click menu to show X and Y grid lines independently.
+The choice is retained when refreshing the plot or changing its theme.
+
+**Downsample** reduces display points for smoother interaction with large datasets.
+Choose **Auto** or a manual factor, then **Peak** to retain extrema, **Mean** to average
+each block, or **Subsample** to take evenly spaced points. Marker series with individual
+sizes or reflection labels retain all their points. Automatic reduction and clipping
+apply to ascending X series. Manual reduction also supports cooling curves and loops.
+
+Enable **Average** to overlay an orange mean curve. At least two line curves must have
+monotonic X values and a shared X range. MDS interpolates onto the first eligible curve's
+points within that range, then averages their Y values. Descending curves and unequal
+sampling are supported. Marker-only series and reflection overlays are excluded.
+Missing values remain gaps. This is a display preview based on the full source arrays.
+Dataset processing and exports continue to use the original plotted series.
+
 Right-click `Export...` to open the combined data/vector/raster/Igor export
 dialog. Its plots reserve enough margin to keep the top and right spines and
 ticks from being clipped.

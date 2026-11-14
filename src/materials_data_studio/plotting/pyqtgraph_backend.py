@@ -11,7 +11,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.graphicsItems.ViewBox.ViewBox import ViewBox
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QAction, QColor, QFont
+from PySide6.QtGui import QAction, QColor, QFont, QPen
 from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from materials_data_studio.core.array_revision import ArrayRevisionCache
@@ -21,6 +21,7 @@ from materials_data_studio.plotting.interactive_export import (
     InteractiveExportDialog,
     export_plot_curves,
 )
+from materials_data_studio.plotting.interactive_options import ScientificPlotItem
 from materials_data_studio.plotting.marker_symbols import qt_symbol
 from materials_data_studio.plotting.matplotlib_backend import export_figure
 from materials_data_studio.plotting.plot_spec import CurveSpec, PlotSpec
@@ -78,12 +79,23 @@ class ScientificAxisItem(pg.AxisItem):
 
     major_length: float = 5.0
     minor_length: float = 3.0
+    grid_pen: QPen | None = None
 
     def generateDrawSpecs(self, p: Any) -> Any:
         specs = super().generateDrawSpecs(p)
         if specs is None:
             return None
         axis_spec, ticks, labels = specs
+        if self.grid:
+            grid_pen = getattr(self, "grid_pen", None)
+            if grid_pen is not None:
+                colored = []
+                for pen, start, end in ticks:
+                    color = grid_pen.color()
+                    color.setAlphaF(color.alphaF() * pen.color().alphaF())
+                    colored.append((pg.mkPen(color, width=grid_pen.widthF()), start, end))
+                ticks = colored
+            return axis_spec, ticks, labels
         baseline = abs(cast(Any, self).style["tickLength"])
         adjusted = []
         for pen, start, end in ticks:
@@ -139,23 +151,17 @@ class RightDragZoomViewBox(ViewBox):
 
 def create_plot_widget() -> pg.PlotWidget:
     """Create a plot with the application's three-button mouse behavior."""
-    widget = pg.PlotWidget(
+    plot_item = ScientificPlotItem(
         viewBox=RightDragZoomViewBox(),
         axisItems={
             name: ScientificAxisItem(orientation=name)
             for name in ("left", "bottom", "top", "right")
         },
     )
-    plot_item = widget.getPlotItem()
-    assert plot_item is not None
+    widget = pg.PlotWidget(plotItem=plot_item)
     # Reserve a small outside margin for the upper/right frame strokes. Without
     # it, fractional-width pens can be clipped by the GraphicsView viewport.
     cast(Any, plot_item.layout).setContentsMargins(2, 2, 8, 3)
-    grid_item = pg.GridItem()
-    grid_item.setZValue(-100)
-    grid_item.setVisible(False)
-    plot_item.addItem(grid_item, ignoreBounds=True)
-    widget._materials_grid_item = grid_item  # type: ignore[attr-defined]
     view_box = widget.getViewBox()
     # PyQtGraph's stock View All performs a one-shot range update.  Make it
     # equivalent to enabling Auto Scale on both axes, as users expect from the
@@ -292,18 +298,13 @@ def apply_plot_theme(widget: pg.PlotWidget, theme: str) -> None:
     spec = getattr(widget, "_materials_plot_spec", None)
     widget.setProperty("materialsTheme", "dark" if dark else "light")
     widget.setBackground(colors.background)
-    grid_item = getattr(widget, "_materials_grid_item", None)
-    if isinstance(grid_item, pg.GridItem):
-        grid_pen = pg.mkPen(colors.grid, width=appearance.grid_width)
-        grid_color = grid_pen.color()
-        grid_color.setAlphaF(appearance.grid_opacity)
-        grid_pen.setColor(grid_color)
-        grid_item.setPen(grid_pen)
-        grid_item.setVisible(
-            isinstance(spec, PlotSpec) and spec.grid_enabled and appearance.show_grid
-        )
     plot_item = widget.getPlotItem()
     assert plot_item is not None
+    if isinstance(spec, PlotSpec):
+        default_grid = spec.grid_enabled, appearance.show_grid
+        if getattr(widget, "_materials_grid_default", None) != default_grid:
+            widget.showGrid(x=all(default_grid), y=all(default_grid))
+            widget._materials_grid_default = default_grid  # type: ignore[attr-defined]
     # The ViewBox owns an opaque background item of its own. Updating only the
     # PlotWidget leaves that item at its previous (often light-theme) color.
     plot_item.getViewBox().setBackgroundColor(colors.background)
@@ -332,6 +333,10 @@ def apply_plot_theme(widget: pg.PlotWidget, theme: str) -> None:
             showValues=(appearance.show_tick_labels and axis_name in {"left", "bottom"}),
         )
         if isinstance(axis, ScientificAxisItem):
+            axis.grid_pen = pg.mkPen(colors.grid, width=appearance.grid_width)
+            grid_color = axis.grid_pen.color()
+            grid_color.setAlphaF(appearance.grid_opacity)
+            axis.grid_pen.setColor(grid_color)
             axis.major_length = appearance.tick_length if appearance.show_major_ticks else 0
             axis.minor_length = appearance.minor_tick_length if appearance.show_minor_ticks else 0
             axis.picture = None
@@ -392,6 +397,8 @@ def render_plot(widget: pg.PlotWidget, spec: PlotSpec) -> None:
         plot = widget.getPlotItem()
         assert plot is not None
         retained = [*getattr(widget, "_materials_curve_items", []), *getattr(widget, "_materials_point_labels", []), *getattr(widget, "_materials_persistent_overlays", [])]
+        if isinstance(plot, ScientificPlotItem):
+            retained.append(plot.average_item)
         for item in list(plot.items):
             if item not in retained and not isinstance(item, pg.GridItem):
                 plot.removeItem(item)
@@ -414,15 +421,8 @@ def render_plot(widget: pg.PlotWidget, spec: PlotSpec) -> None:
         if str(widget.property("materialsTheme") or "light") == "dark"
         else active_plot_appearance().light
     )
-    grid_visible = spec.grid_enabled and active_plot_appearance().show_grid
-    widget.showGrid(x=False, y=False)
     plot_item = widget.getPlotItem()
     assert plot_item is not None
-    grid_item = getattr(widget, "_materials_grid_item", None)
-    if isinstance(grid_item, pg.GridItem) and grid_item not in plot_item.items:
-        plot_item.addItem(grid_item, ignoreBounds=True)
-    if isinstance(grid_item, pg.GridItem):
-        grid_item.setVisible(grid_visible)
     plot_item.getViewBox().setBackgroundColor(colors.background)
     legend = plot_item.legend
     if spec.legend_enabled and spec.curves and active_plot_appearance().show_legend:
@@ -469,6 +469,8 @@ def render_plot(widget: pg.PlotWidget, spec: PlotSpec) -> None:
     ]
     widget._materials_curve_styles = [curve.style.to_dict() for curve in spec.curves]  # type: ignore[attr-defined]
     widget._materials_curve_sizes = [None if curve.marker_sizes is None else curve.marker_sizes.copy() for curve in spec.curves]  # type: ignore[attr-defined]
+    if isinstance(plot_item, ScientificPlotItem):
+        plot_item.set_source_curves(spec.curves, curve_items, [_can_reduce(c) for c in spec.curves])
     if first_data or mode_changed:
         widget.getViewBox().enableAutoRange(axis=ViewBox.XYAxes, enable=True)
     if not spec.curves:
@@ -494,7 +496,7 @@ _ascending_cache = ArrayRevisionCache(64)
 def _can_reduce(curve: CurveSpec) -> bool:
     # PlotDataItem clips/downsamples x/y without slicing per-point symbolSize.
     # Keep sparse marker data paired, while retaining LOD for dense observations.
-    return curve.marker_sizes is None and _ascending_cache.get_or_create((curve.x,), "ascending", lambda: bool(len(curve.x) < 2 or np.all(curve.x[1:] >= curve.x[:-1])))
+    return curve.marker_sizes is None and not curve.point_labels and _ascending_cache.get_or_create((curve.x,), "ascending", lambda: bool(len(curve.x) < 2 or np.all(curve.x[1:] >= curve.x[:-1])))
 
 
 def _update_point_labels(widget: pg.PlotWidget, spec: PlotSpec) -> None:
@@ -621,7 +623,7 @@ def update_rendered_plot_data(widget: pg.PlotWidget, spec: PlotSpec) -> bool:
         ascending = _can_reduce(curve)
         if not ascending:
             item.setClipToView(False)
-            item.setDownsampling(auto=False)
+            item.setDownsampling(ds=1, auto=False)
         if same_style and same_sizes:
             item.setData(curve.x, curve.y)
         else:
@@ -639,12 +641,15 @@ def update_rendered_plot_data(widget: pg.PlotWidget, spec: PlotSpec) -> bool:
                         sample.update()
                         if legend_label.text != name:
                             legend_label.setText(name)
-        item.setClipToView(ascending)
-        item.setDownsampling(auto=ascending, method="peak")
+        if not isinstance(plot_item, ScientificPlotItem):
+            item.setClipToView(ascending)
+            item.setDownsampling(auto=ascending, method="peak")
     _update_point_labels(widget, spec)
     widget._materials_curve_labels = [curve.label for curve in spec.curves]  # type: ignore[attr-defined]
     widget._materials_curve_styles = styles  # type: ignore[attr-defined]
     widget._materials_curve_sizes = [None if curve.marker_sizes is None else curve.marker_sizes.copy() for curve in spec.curves]  # type: ignore[attr-defined]
     _apply_spec_ranges(widget, spec)
     widget._materials_plot_spec = spec  # type: ignore[attr-defined]
+    if isinstance(plot_item, ScientificPlotItem):
+        plot_item.set_source_curves(spec.curves, items, [_can_reduce(c) for c in spec.curves])
     return True
