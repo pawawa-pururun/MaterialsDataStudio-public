@@ -8,8 +8,6 @@ from dataclasses import replace
 from typing import Any
 
 import numpy as np
-from scipy import signal
-from scipy.signal.windows import dpss
 
 from materials_data_studio.tools.graph_waves import make_wave
 
@@ -25,6 +23,9 @@ SPECTRAL = {
 
 
 def spectral(kind: str, waves: list[Any], destination: str, method: int, count: int) -> Any:
+    from scipy import signal
+    from scipy.signal.windows import dpss
+
     source = waves[0]
     if len(waves) != (2 if kind == "lomb" else 1) or np.iscomplexobj(source.data):
         raise ValueError("Select one real wave; Lomb requires Y then X waves")

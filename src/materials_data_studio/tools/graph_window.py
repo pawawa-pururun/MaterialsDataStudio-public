@@ -162,6 +162,10 @@ class GraphEditorWindow(PxpViewerWindow):
         self.drawing_snap = False
         self._bezier_drag: dict[str, Any] | None = None
         super().__init__(parent, **kwargs)
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(40)
+        self._resize_timer.timeout.connect(self._refresh_geometry)
         from materials_data_studio.ui.input_wheel_guard import install_input_wheel_guard
         install_input_wheel_guard()
         self.setWindowTitle("MDS Graph Editor — Igor PXP Viewer")
@@ -404,13 +408,15 @@ class GraphEditorWindow(PxpViewerWindow):
         self.duplicate_graph_action.setShortcut("Ctrl+D")
         self.duplicate_graph_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
         self.duplicate_graph_action.setEnabled(self.graph() is not None)
-        self.duplicate_graph_action.triggered.connect(self.duplicate_graph)
+        self.duplicate_graph_action.triggered.connect(lambda: self.duplicate_graph())
         action = self.edit_menu.addAction("Paste Drawing")
         action.triggered.connect(self.paste_drawing)
 
-    def duplicate_graph(self) -> None:
-        graph = self.graph()
+    def duplicate_graph(self, graph_name: str | None = None) -> None:
+        graph = self.editor.document.graph(graph_name) if graph_name and self.editor else self.graph()
         if self.editor is None or graph is None:
+            return
+        if not self.confirm_property_edits():
             return
         from materials_data_studio.tools.graph_trace_dialogs import unique_name
         before = self.editor.document.current.clone()
@@ -433,6 +439,7 @@ class GraphEditorWindow(PxpViewerWindow):
             if original.name in before.layout:
                 after.layout[renamed[original.name]] = copy.deepcopy(before.layout[original.name])
         self._selection = "graph", copies[0].name
+        self._property_selection = self._selection
         self.view_state["selected"] = self._selection
         self.editor.commit(before, after, "Duplicate Graph")
 
@@ -596,15 +603,20 @@ class GraphEditorWindow(PxpViewerWindow):
     def _draw_graph(self, graph: PxpGraph) -> None:
         if self.editor is None:
             return
+        self._resize_timer.stop()
         self._drag = None
         self.clear_region()
         previous = getattr(self, "_rendered_state", None)
+        geometry = (*self.figure.get_size_inches(), self.figure.dpi)
+        if geometry != getattr(self, "_rendered_geometry", None):
+            previous = None
         layout = self.graph_layout()
         waves = self.editor.document.render_source().waves
         moved_tags = previous is not None and self.renderer.update_tag_positions(self.figure, previous, graph, layout, self.editor.document.render_source())
         if not moved_tags and (previous is None or not self.renderer.update_trace_styles(self.figure, previous, graph, layout, waves)):
             self.artist_targets = self.renderer.render(self.figure, self.editor.document, graph.name)
         self._rendered_state = (graph, layout, waves)
+        self._rendered_geometry = geometry
         self.canvas.draw_idle()
         source = self.editor.document.source
         issues = [*source.issues, *graph.issues]
@@ -618,6 +630,33 @@ class GraphEditorWindow(PxpViewerWindow):
         self.compatibility.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         if issues or report.diagnostics:
             self.compatibility.setText(f"{graph.name} · {report.summary} · {len(report.diagnostics)+len(source.issues)} notes (hover for details)")
+
+    def _canvas_resized(self, _event: Any) -> None:
+        if self.editor is None or self.graph() is None or self._building:
+            return
+        self._drag = self._bezier_drag = self._insert_drag = None
+        self.drag_paint_timer.stop()
+        self._resize_timer.start()
+
+    def _refresh_geometry(self) -> None:
+        graph = self.graph()
+        if graph is None or self.editor is None:
+            return
+        previous = getattr(self, "_rendered_state", None)
+        source = self.editor.document.render_source()
+        same_graph = previous is not None and previous[0] == graph and previous[1] == self.graph_layout()
+        same_waves = previous is not None and same_graph and len(previous[2]) == len(source.waves) and all(a is b for a, b in zip(previous[2], source.waves, strict=True))
+        views = [(a.get_xlim(), a.get_ylim(), a.get_autoscalex_on(), a.get_autoscaley_on()) for a in self.figure.axes] if same_waves else []
+        self._rendered_state = None
+        self._draw_graph(graph)
+        for ax, (xlim, ylim, auto_x, auto_y) in zip(self.figure.axes, views, strict=False):
+            ax.set_xlim(xlim, auto=auto_x)
+            ax.set_ylim(ylim, auto=auto_y)
+
+    def confirm_property_edits(self) -> bool:
+        if not any(self._property_record_dirty(record) for record in self.property_widgets.values()):
+            return True
+        return QMessageBox.question(self, "Unapplied property edits", "Discard pending property edits before changing the graph or wave selection? Choose No to stay and apply them first.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes
 
     def _show_selection(self) -> None:
         graph = self.graph()
@@ -640,7 +679,7 @@ class GraphEditorWindow(PxpViewerWindow):
             self._title()
             return
         previous_selection = getattr(self, "_property_selection", self._selection)
-        if previous_selection != self._selection and any(self._property_record_dirty(record) for record in self.property_widgets.values()) and QMessageBox.question(self, "Unapplied property edits", "Discard pending property edits before changing the graph or wave selection? Choose No to stay and apply them first.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+        if previous_selection != self._selection and not self.confirm_property_edits():
             self._selection = previous_selection
             return
         self._property_selection = self._selection

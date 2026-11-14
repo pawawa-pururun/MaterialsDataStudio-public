@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.stats import f, ncf
 
 
 def anova_power(df1: float, df2: float, noncentrality: float, alpha: float = .05) -> float:
+    from scipy.stats import f, ncf
+
     if not np.isfinite([df1,df2,noncentrality,alpha]).all() or df1 <= 0 or df2 <= 0 or noncentrality < 0 or not 0 < alpha < 1:
         raise ValueError("Positive degrees of freedom, nonnegative noncentrality and 0<alpha<1 are required")
     critical = f.isf(alpha,df1,df2)

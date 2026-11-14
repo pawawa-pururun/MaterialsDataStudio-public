@@ -165,6 +165,7 @@ class XrdPeakFittingWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self.state = state
+        self._restoring = True
         self.apply_callback = apply_callback
         self._background_ready = False
         self._background_busy = False
@@ -198,7 +199,9 @@ class XrdPeakFittingWindow(QMainWindow):
             self.radiation.setCurrentText(str(dataset.metadata.get("radiation", "Cu Kα1")))
         if saved_state:
             self.restore_state(saved_state)
+        self._restoring = False
         self.apply_theme(theme)
+        self._refresh_plots()
 
     @staticmethod
     def compatible_datasets(state: ProjectState) -> list[Dataset]:
@@ -256,7 +259,7 @@ class XrdPeakFittingWindow(QMainWindow):
         self.fit_min.valueChanged.connect(self._range_spin_changed)
         self.fit_max.valueChanged.connect(self._range_spin_changed)
         self.full_range = QPushButton("Use Full Range")
-        self.full_range.clicked.connect(self._set_full_range)
+        self.full_range.clicked.connect(lambda: self._set_full_range())
         self.exclusions = QLineEdit()
         self.exclusions.setPlaceholderText("e.g. 25-27, 43.5-44.2")
         self.exclusions.textChanged.connect(self._range_options_changed)
@@ -594,7 +597,7 @@ class XrdPeakFittingWindow(QMainWindow):
         enabled = self.dataset_combo.count() > 0 and self.phase_combo.count() > 0
         self.run_button.setEnabled(enabled and self._background_ready)
         if enabled:
-            self._set_full_range()
+            self._set_full_range(refresh=False)
             self._rebuild_parameters()
             self._refresh_plots()
         else:
@@ -609,22 +612,28 @@ class XrdPeakFittingWindow(QMainWindow):
         self.steps.setCurrentIndex(0)
         self.steps.setTabEnabled(1, False)
         self.run_button.setEnabled(False)
+        if self._restoring:
+            return
         dataset = self._dataset()
         if dataset is not None:
             self.radiation.setCurrentText(str(dataset.metadata.get("radiation", "Cu Kα1")))
         if not self._confirm_clear_result():
             return
-        self._set_full_range()
+        self._set_full_range(refresh=False)
         self._rebuild_parameters()
         self._refresh_plots()
 
     def _phase_changed(self) -> None:
+        if self._restoring:
+            return
         if not self._confirm_clear_result():
             return
         self._rebuild_parameters()
         self._refresh_plots()
 
     def _model_options_changed(self) -> None:
+        if self._restoring:
+            return
         self._result = None
         self._set_result_actions(False)
         self._rebuild_parameters()
@@ -632,7 +641,7 @@ class XrdPeakFittingWindow(QMainWindow):
 
     def _range_options_changed(self) -> None:
         """Refresh parameters, reflection rows, and plots after range edits."""
-        if self._updating_range:
+        if self._restoring or self._updating_range:
             return
         try:
             self._excluded_ranges()
@@ -657,7 +666,7 @@ class XrdPeakFittingWindow(QMainWindow):
         self._set_result_actions(False)
         return True
 
-    def _set_full_range(self) -> None:
+    def _set_full_range(self, *, refresh: bool = True) -> None:
         dataset = self._dataset()
         if dataset is None:
             return
@@ -669,7 +678,8 @@ class XrdPeakFittingWindow(QMainWindow):
         self.fit_min.setValue(float(np.min(finite)))
         self.fit_max.setValue(float(np.max(finite)))
         self._updating_range = False
-        self._refresh_plots()
+        if refresh:
+            self._refresh_plots()
 
     def _excluded_ranges(self) -> tuple[tuple[float, float], ...]:
         text = self.exclusions.text().strip()
@@ -1216,6 +1226,9 @@ class XrdPeakFittingWindow(QMainWindow):
         self._range_options_changed()
 
     def _refresh_plots(self) -> None:
+        if self._restoring:
+            return
+        self._preview_timer.stop()
         dataset = self._dataset()
         if dataset is None:
             return
@@ -1507,7 +1520,7 @@ class XrdPeakFittingWindow(QMainWindow):
         self.grouping_factor.setValue(0.5)
         self.weighting.setCurrentIndex(self.weighting.findData("uniform"))
         self.loss.setCurrentIndex(self.loss.findData("linear"))
-        self._set_full_range()
+        self._set_full_range(refresh=False)
         self._rebuild_parameters({})
         self.status.setPlainText("Restored original CIF and dataset starting values.")
         self._refresh_plots()
@@ -1656,7 +1669,12 @@ class XrdPeakFittingWindow(QMainWindow):
 
     def restore_state(self, state: dict[str, Any]) -> None:
         """Restore compatible optional state while leaving the main session usable."""
+        was_restoring = self._restoring
+        was_updating_range = self._updating_range
+        self._restoring = True
         try:
+            self._result = None
+            self._set_result_actions(False)
             dataset_index = self.dataset_combo.findData(
                 state.get("selected_dataset_id")
             )
@@ -1708,13 +1726,17 @@ class XrdPeakFittingWindow(QMainWindow):
                 self._rebuild_parameters(self._result.parameters)
                 self._fill_reflection_table(self._result)
                 self._set_result_actions(True)
-            self._refresh_plots()
         except Exception as exc:
             LOGGER.warning("Ignoring incompatible peak-fitting session state: %s", exc)
             self.status.setPlainText(
                 "Saved peak-fitting state was incompatible and was ignored. "
                 "The rest of the session remains available."
             )
+        finally:
+            self._restoring = was_restoring
+            self._updating_range = was_updating_range
+            if not was_restoring:
+                self._refresh_plots()
 
     def apply_theme(self, theme: str) -> None:
         """Update both fit plots to the application light/dark theme."""

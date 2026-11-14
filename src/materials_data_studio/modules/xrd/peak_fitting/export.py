@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from matplotlib.figure import Figure
 
 from materials_data_studio.core.export import export_numeric
 from materials_data_studio.modules.xrd.peak_fitting.models import (
@@ -290,6 +289,8 @@ def export_fit_figure(
     path: Path, result: PeakFitResult, *, transparent: bool = False
 ) -> None:
     """Export observed/calculated/background and residual in linked axes."""
+    from matplotlib.figure import Figure
+
     figure = Figure(figsize=(7.0, 6.0), dpi=300)
     main = figure.add_subplot(211)
     residual_axis = figure.add_subplot(212, sharex=main)

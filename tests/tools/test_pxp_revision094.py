@@ -186,7 +186,13 @@ def test_os_boundary_files_network_process_and_clipboard(tmp_path):
         assert report["policy"]["appcontainer"] == 1 and report["policy"]["capabilities"] == 0
         for key in ("host_read", "host_write", "runtime_write"):
             assert report[key]["errno"] == 13
-        assert report["spawn"] != "ALLOWED" and not report["clipboard"]
+        assert report["spawn"] != "ALLOWED"
+        assert report["job_ui_query"] and report["job_ui"] == 0xFF
+        if report["clipboard"]:
+            assert not report["clipboard_read_handle"]
+            assert report["clipboard_read_error"] == 5
+        else:
+            assert report["clipboard_open_error"] == 5
         for channel in (tcp, udp):
             channel.settimeout(0.2)
             with pytest.raises(TimeoutError):

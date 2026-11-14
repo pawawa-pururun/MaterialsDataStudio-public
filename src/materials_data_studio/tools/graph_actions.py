@@ -221,6 +221,71 @@ def graph_action(window: GraphEditorWindow, operation: str, trace_name: str = ""
         window._state_changed()
 
 
+def graph_list_action(window: GraphEditorWindow, operation: str, name: str) -> None:
+    """Manage the clicked graph and its references in one undoable edit."""
+    if window.editor is None:
+        return
+    document = window.editor.document
+    graph = next((g for g in document.current.graphs if g.name == name), None)
+    if graph is None:
+        return
+    if operation == "duplicate":
+        window.duplicate_graph(name)
+        return
+    before = document.current.clone()
+    after = before.clone()
+    selection = window._selection
+    if operation == "rename":
+        value, accepted = QInputDialog.getText(window, "Rename Graph", "Graph name", text=name)
+        if not accepted:
+            return
+        value = value.strip()
+        if value == name:
+            return
+        if not value or any(c in value for c in ":;\"'\\\r\n") or any(ord(c) < 32 for c in value):
+            QMessageBox.warning(window, "Rename Graph", "Enter a nonempty graph name without command delimiters.")
+            return
+        if any(g.name == value for g in before.graphs):
+            QMessageBox.warning(window, "Rename Graph", "A graph with this name already exists.")
+            return
+        after.graphs = tuple(replace(g, name=value if g.name == name else g.name,
+            host=value if g.host == name else g.host,
+            layout_items=tuple(replace(item, graph=value) if item.graph == name else item for item in g.layout_items))
+            for g in before.graphs)
+        if name in after.layout:
+            after.layout[value] = after.layout.pop(name)
+        selection = "graph", value
+        title = "Rename Graph"
+    elif operation == "delete":
+        if QMessageBox.question(window, "Delete Graph", "Delete this graph and its inset graphs?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+            return
+        removed = {name}
+        descendants = [name]
+        for parent in descendants:
+            for child in before.graphs:
+                if child.host == parent and child.name not in removed:
+                    removed.add(child.name)
+                    descendants.append(child.name)
+        after.graphs = tuple(replace(g, layout_items=tuple(item for item in g.layout_items if item.graph not in removed))
+                             for g in before.graphs if g.name not in removed)
+        for deleted in removed:
+            after.layout.pop(deleted, None)
+        if window._selection[0] == "graph" and window._selection[1] in removed:
+            remaining = next((g for g in after.graphs if not g.host), None)
+            selection = ("graph", remaining.name) if remaining else ("", "")
+        title = "Delete Graph"
+    else:
+        return
+    if selection != window._selection and not window.confirm_property_edits():
+        return
+    window._selection = window._property_selection = selection
+    window.view_state["selected"] = selection
+    window.editor.commit(before, after, title)
+    window.command_workspace.context()
+
+
 def edit_annotation(window: GraphEditorWindow, kind: str, identifier: str) -> None:
     from materials_data_studio.tools.graph_annotation_dialog import AnnotationDialog
     if window.editor is None or window.graph() is None:
@@ -361,6 +426,12 @@ def install_menus(window: GraphEditorWindow) -> None:
             menu = QMenu(window)
             for title, operation in (("Edit cells…", "edit"), ("Modify columns…", "modify"), ("Delete table…", "delete")):
                 menu.addAction(title).triggered.connect(lambda _checked=False, op=operation, name=record[1]: table_action(window, op, name))
+            window.context_menu = menu
+            menu.popup(window.tree.viewport().mapToGlobal(point))
+        elif isinstance(record, tuple) and record[0] == "graph" and window.editor is not None:
+            menu = QMenu(window)
+            for title, operation in (("Duplicate Graph", "duplicate"), ("Rename Graph…", "rename"), ("Delete Graph…", "delete")):
+                menu.addAction(title).triggered.connect(lambda _checked=False, op=operation, name=record[1]: graph_list_action(window, op, name))
             window.context_menu = menu
             menu.popup(window.tree.viewport().mapToGlobal(point))
     window.tree.customContextMenuRequested.connect(context)

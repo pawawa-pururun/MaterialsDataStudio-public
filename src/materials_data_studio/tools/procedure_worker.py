@@ -138,9 +138,20 @@ def main() -> int:
         from ctypes import wintypes as w
         user = ctypes.WinDLL("user32", use_last_error=True)
         from materials_data_studio.tools.procedure_sandbox import api
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        ui = w.DWORD()
+        report["job_ui_query"] = bool(api(kernel, "QueryInformationJobObject", w.BOOL, w.HANDLE, ctypes.c_int, w.LPVOID, w.DWORD, w.LPVOID)(None, 4, ctypes.byref(ui), ctypes.sizeof(ui), None))
+        report["job_ui"] = ui.value
+        ctypes.set_last_error(0)
         report["clipboard"] = bool(api(user, "OpenClipboard", w.BOOL, w.HWND)(None))
+        report["clipboard_open_error"] = ctypes.get_last_error()
         if report["clipboard"]:
-            api(user, "CloseClipboard", w.BOOL)()
+            try:
+                ctypes.set_last_error(0)
+                report["clipboard_read_handle"] = bool(api(user, "GetClipboardData", w.HANDLE, w.UINT)(13))
+                report["clipboard_read_error"] = ctypes.get_last_error()
+            finally:
+                api(user, "CloseClipboard", w.BOOL)()
         try:
             import subprocess
             subprocess.run([sys.executable, "-c", "pass"], check=True)

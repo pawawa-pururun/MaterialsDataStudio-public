@@ -48,6 +48,9 @@ Graph Editorは、wave（数値・文字データ）、グラフ、tableをま�
 
 元のPXPは変更しません。再編集には **MDSG**、Igorへ渡す場合には **H5XP**、完成した図には **Export Figure** を使います。
 保存した文書は **File > Open Graph Document (.mdsg / .h5xp)** から再び開けます。
+保存した編集の読み込み、ウインドウのリサイズ、カラム境界の移動に合わせて、グラフを
+描画領域へ自動的に合わせます。文字・マーカー・注記も表示倍率に追随します。
+図の出力寸法はPropertiesで設定します。
 メイン画面のSave Sessionは独立したGraph Editorを保存しません。
 編集はこのEditor内のUndo/Redo（Ctrl+Z/Ctrl+Y）で戻せます。`[Modified]` は未保存の編集を表します。
 
@@ -160,6 +163,10 @@ FFTは有限値の偶数長1D waveに対応します。Histogramではrange・bi
 系列・軸・注記・図形・挿入グラフを引き継ぎ、複製後の外観を個別に編集できます。
 両方のグラフは同じworking waveを使うため、waveを編集すると両方に反映されます。
 複製は1回のUndoで取り消せます。
+
+左の **Graphs** 一覧でグラフを右クリックし、**グラフを複製**・**グラフ名を変更…**・
+**グラフを削除…** を選べます。名前変更は挿入グラフやLayout内の参照にも反映されます。
+削除は確認画面を経て、そのグラフの挿入グラフも対象にします。これらの操作もUndo/Redoで戻せます。
 
 ![waveからのグラフ作成](screenshots/44_graph_new_graph.png)
 

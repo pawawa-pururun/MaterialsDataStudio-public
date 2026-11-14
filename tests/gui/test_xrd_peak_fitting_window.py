@@ -100,6 +100,83 @@ def _state() -> ProjectState:
     return state
 
 
+def test_saved_configuration_is_previewed_once_after_restore(qtbot, monkeypatch):
+    import materials_data_studio.modules.xrd.peak_fitting.fitting_window as module
+
+    state = _state()
+    original = state.datasets[0].array("intensity").copy()
+    first = module.XrdPeakFittingWindow(state, apply_callback=lambda *args: None)
+    qtbot.addWidget(first)
+    saved = first.serialize_state()
+    saved.update(fit_range=[25., 60.], excluded_ranges=[[30., 31.]],
+                 grouping_factor=1.2, le_bail_cycles=12, weighting="poisson", alpha2_ratio=.4)
+    saved["parameters"]["zero_shift"]["value"] = .12
+    calls = []
+    preview = module.preview_pattern
+    def tracked(configuration):
+        calls.append(configuration)
+        return preview(configuration)
+    monkeypatch.setattr(module, "preview_pattern", tracked)
+    window = module.XrdPeakFittingWindow(state, apply_callback=lambda *args: None, saved_state=saved)
+    qtbot.addWidget(window)
+    assert len(calls) == 1
+    assert (window.fit_min.value(), window.fit_max.value()) == (25., 60.)
+    assert window._excluded_ranges() == ((30., 31.),)
+    assert window._current_table_parameters()["zero_shift"].value == pytest.approx(.12)
+    qtbot.wait(160)
+    assert len(calls) == 1
+    calls.clear()
+    window.restore_state(saved)
+    assert len(calls) == 1
+    assert not window._restoring and not window._updating_range
+    window.steps.setTabEnabled(1, True)
+    window.steps.setCurrentIndex(1)
+    window.full_range.click()
+    assert len(calls) == 2
+    assert (window.fit_min.value(), window.fit_max.value()) == (20., 70.)
+    np.testing.assert_array_equal(state.datasets[0].array("intensity"), original)
+
+
+def test_malformed_saved_range_releases_restore_guards(qtbot):
+    from materials_data_studio.modules.xrd.peak_fitting.fitting_window import XrdPeakFittingWindow
+
+    window = XrdPeakFittingWindow(_state(), apply_callback=lambda *args: None)
+    qtbot.addWidget(window)
+    window.restore_state({"fit_range": ["invalid", 60.]})
+    assert not window._restoring and not window._updating_range
+    window.fit_min.setValue(25.)
+    assert window._configuration().fit_range[0] == 25.
+
+
+def test_restore_different_dataset_resets_background_and_old_result(qtbot):
+    from materials_data_studio.modules.xrd.peak_fitting.fitting_window import XrdPeakFittingWindow
+    from materials_data_studio.modules.xrd.peak_fitting.optimizer import fit_pattern
+
+    state = _state()
+    observed = state.datasets[0]
+    observed.processed_data["background"] = np.zeros_like(observed.array("intensity"))
+    observed.metadata["background_enabled"] = True
+    window = XrdPeakFittingWindow(state, apply_callback=lambda *args: None)
+    qtbot.addWidget(window)
+    window._result = fit_pattern(window._configuration())
+    saved = window.serialize_state()
+    saved["last_result"] = None
+    other = Dataset("Other generated observation", ModuleType.XRD, dict(observed.raw_data),
+                    processed_data=dict(observed.processed_data), metadata=dict(observed.metadata))
+    state.datasets.append(other)
+    window._populate_datasets()
+    window._background_ready = True
+    window.steps.setTabEnabled(1, True)
+    window.steps.setCurrentIndex(1)
+    saved["selected_dataset_id"] = other.dataset_id
+    window.restore_state(saved)
+    assert window._result is None
+    assert window._dataset() is other
+    assert not window._background_ready
+    assert window.steps.currentIndex() == 0 and not window.steps.isTabEnabled(1)
+    assert not window.run_button.isEnabled()
+
+
 def test_peak_fitting_entry_window_worker_repeat_and_state(
     qtbot, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # type: ignore[no-untyped-def]

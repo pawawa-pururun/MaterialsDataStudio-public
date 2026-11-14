@@ -8,7 +8,6 @@ from threading import Event
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import least_squares
 
 from materials_data_studio.core.exceptions import AnalysisError
 from materials_data_studio.modules.xrd.cif_backend import UnitCell
@@ -630,6 +629,8 @@ def fit_pattern(
     cancel_event: Event | None = None,
 ) -> PeakFitResult:
     """Fit one experimental angle-dispersive dataset against one CIF phase."""
+    from scipy.optimize import least_squares
+
     x = np.asarray(configuration.x, dtype=float)
     observed = np.asarray(configuration.y, dtype=float)
     if x.ndim != 1 or x.shape != observed.shape or len(x) < 4:

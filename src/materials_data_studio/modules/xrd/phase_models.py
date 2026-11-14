@@ -8,7 +8,6 @@ from functools import lru_cache
 from typing import Any
 
 import numpy as np
-from scipy.signal import find_peaks, peak_widths
 
 MAX_CANDIDATES = 200
 MAX_CALCULATIONS = 30
@@ -126,6 +125,8 @@ class Candidate:
 
 def detect_peaks(x: np.ndarray, y: np.ndarray, *, prominence: float = 0.02, limit: int = 500) -> list[dict[str, Any]]:
     """Detect positive local maxima from the caller's current processed intensity."""
+    from scipy.signal import find_peaks, peak_widths
+
     x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
     if x.ndim != 1 or y.shape != x.shape or x.size < 3 or x.size > 2_000_000:
         raise ValueError("Peak detection requires 3–2,000,000 paired samples.")

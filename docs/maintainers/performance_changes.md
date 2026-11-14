@@ -67,3 +67,67 @@ Keep machine/environment metadata with comparisons; do not compare OS-cold EXE t
 
 公開用の合成計測は上記コマンドで実行でき、公開前検査でも3経路を各1回確認します。
 比較時は環境条件を残し、OS初回のEXE計測とソース計測を直接比較しないでください。
+
+## v0.15.4 window opening and viewport refresh
+
+Profiling first openings after the main window was ready found unused SciPy optimization,
+signal processing and statistics imports dominating Graph Editor, Search–Match and Peak Fitting.
+Numerical entry points now import their kernels when executing the requested calculation.
+Peak-fit figure export imports Matplotlib when creating an export. Saved peak-fit controls are
+restored together, followed by one consistent preview. Range edits release their guards after
+malformed saved values as well.
+
+The display fast path now includes canvas size and DPI. Resize bursts are coalesced over 40 ms,
+then rebuild the visual geometry, preserving the active axis view. These refreshes use the
+current graph document. Undo/Redo records explicit document edits. Graph-list actions update host/Layout
+references and handle pending Properties edits before changing the selection.
+
+The following source-window measurements used Windows x64 and Python 3.12.14. Each feature was
+opened in three fresh processes after main-window startup, with generated 20,000-point data and
+a synthetic CIF. The baseline was PR #8 commit `f1c7d58`. OS cache was uncontrolled. RSS columns
+give median process-RSS growth between the ready main window and the opened feature.
+
+| First opening | Before, seconds | After, seconds | RSS growth before, MiB | RSS growth after, MiB |
+| --- | --- | --- | --- | --- |
+| Graph Editor | 2.335 | 0.536 | 124.4 | 38.6 |
+| Search–Match | 2.012 | 0.361 | 111.4 | 26.1 |
+| Peak Fitting with CIF phase | 1.681 | 0.289 | 90.5 | 23.1 |
+| Peak Fitting with observation only | 1.648 | 0.259 | 84.7 | 17.3 |
+
+The separate two-run document-startup probe measured MDSG readiness at 4.358 → 2.769 seconds.
+Use `python scripts/benchmark_feature_startup.py --repeat 3 --report .test-tmp/features.json`
+to reproduce feature timings. `--source-root` selects an isolated comparison checkout.
+Tests check deferred numerical imports in fresh processes, full peak-fit restoration,
+viewport sizing/DPI/zoom, coalescing and graph-list transactions. Existing numerical tests
+exercise the first real calculation after deferred loading.
+
+### 日本語
+
+メイン画面表示後の初回起動を計測し、Graph Editor・Search–Match・ピークフィッティングで
+未使用の最適化・信号処理・統計ライブラリの読み込みが大きな割合を占めていました。
+必要な計算を実行するときに読み込み、ピークフィットのMatplotlibは図の出力時に読み込みます。
+保存したフィット設定をまとめて復元してからプレビューを1回作成し、不正な保存範囲でも
+更新抑制を解除して操作を続けられるようにしています。
+
+表示更新の判定に描画領域とDPIを含め、リサイズ中は40 msで更新をまとめます。
+現在の軸範囲を保ってグラフを再描画します。グラフ一覧の操作ではhost・Layoutの参照を
+更新し、選択変更前に未適用のProperties入力を確認します。
+
+上表はWindows x64・Python 3.12.14で、各機能を新しいプロセスから3回ずつ測定した中央値です。
+メイン画面の起動後から、合成20,000点データと合成CIFを使う画面の表示までを測っています。
+RSSは機能を開く前後のプロセスメモリ増加量です。比較元はPR #8の `f1c7d58`、OS cacheは未制御です。
+別の2回計測ではMDSG読み込み完了までの中央値が4.358秒から2.769秒でした。
+上記の公開用計測スクリプトとテストから再確認できます。計算結果は既存の数値テストでも照合します。
+
+The baseline's Windows boundary test also failed when `OpenClipboard` succeeded while
+`GetClipboardData` was denied with error 5. The probe now checks the worker's complete
+job UI-restriction mask and clipboard read denial, recording API outcomes and error codes.
+The Windows job UI flags govern access to clipboard data.
+[Job UI restrictions](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_ui_restrictions),
+[OpenClipboard](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-openclipboard),
+[GetClipboardData](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclipboarddata).
+
+変更前コードのWindows境界テストでも、OpenClipboardが成功し、実際のGetClipboardDataは
+エラー5で拒否される環境で旧判定が失敗しました。テストはworkerの全UI制限と読取の拒否を
+確認し、APIの成否・エラーコードを記録する形に修正しました。Windowsの制限とAPIの役割は
+上記の公式資料で確認できます。

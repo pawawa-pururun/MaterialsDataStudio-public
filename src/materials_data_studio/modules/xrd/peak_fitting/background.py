@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import lsq_linear
 
 from materials_data_studio.core.exceptions import AnalysisError
 
@@ -55,6 +54,8 @@ def asymmetric_reweighted_linear_fit(
     arPLS. Ordinary weighted least squares is retained when no fitted
     background term is present.
     """
+    from scipy.optimize import lsq_linear
+
     if design.ndim != 2 or design.shape[0] != len(target):
         raise AnalysisError("The background design matrix is not aligned.")
     if len(weights) != len(target):
