@@ -192,3 +192,30 @@ def test_resize_coordinate_systems_log_axes_and_crossed_corners(window: GraphEdi
     np.testing.assert_allclose(final[3], destination, atol=1e-7)
     window.undo_action.trigger()
     assert window.graph().drawings == (drawing,)
+
+
+def test_handle_grab_offset_is_preserved_and_click_is_a_noop(window: GraphEditorWindow):
+    editor, graph = window.editor, window.graph()
+    assert editor is not None and graph is not None
+    drawing = PxpDrawing("DrawRect", (.2, .2, .6, .6))
+    editor.edit_graph(replace(graph, drawings=(drawing,)), "Shape")
+    window.drawing_selected = 0
+    window.select_target("drawing", "0")
+    artist = next(a for a, t in window.artist_targets.items() if t == ("drawing", "0"))
+    initial = drawing_corners(artist)
+    x, y = initial[0] + np.array([3., 2.])
+    event = SimpleNamespace(button=1, dblclick=False, x=x, y=y, inaxes=artist.axes)
+    window.pointer_press(event)
+    window.pointer_release(event)
+    assert editor.history.count() == 1
+    assert window.graph().drawings == (drawing,)
+    window.pointer_press(event)
+    window.pointer_move(SimpleNamespace(x=x + 19., y=y + 15.))
+    window._paint_drag()
+    np.testing.assert_allclose(drawing_corners(artist)[0], initial[0] + np.array([19., 15.]), atol=1e-8)
+    window.pointer_move(SimpleNamespace(x=x, y=y, key="shift"))
+    window.pointer_release(SimpleNamespace(x=x, y=y, key="shift"))
+    assert editor.history.count() == 1
+    assert window.graph().drawings == (drawing,)
+    assert artist.drawing == drawing
+    np.testing.assert_allclose(drawing_corners(artist), initial, atol=1e-8)

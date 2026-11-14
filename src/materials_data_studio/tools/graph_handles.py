@@ -42,6 +42,7 @@ def begin_resize(window: Any, event: Any) -> bool:
     pixels = transform.transform(np.asarray(drawing.coordinates[:count]).reshape(-1, 2))
     window._bezier_drag = dict(index=index, drawing=drawing, ax=artist.axes, pixels=pixels,
                               corner=corner, corners=corners, transform=transform,
+                              start=np.array([event.x, event.y], dtype=float),
                               background=window.canvas.copy_from_bbox(window.figure.bbox), draft=drawing)
     return True
 
@@ -221,7 +222,13 @@ def move_edit(window: Any, event: Any) -> None:
     drag = window._bezier_drag
     original = drag["pixels"]
     if "corner" in drag:
-        point = np.array([event.x, event.y], dtype=float)
+        delta = np.array([event.x, event.y], dtype=float) - drag["start"]
+        if not np.any(delta):
+            drag["draft"] = drag["drawing"]
+            if not window.drag_paint_timer.isActive():
+                window.drag_paint_timer.start()
+            return
+        point = drag["corners"][drag["corner"]] + delta
         if (window.drawing_snap or modifier(event, "shift")) and not modifier(event, "alt"):
             grid = 10 * window.canvas.device_pixel_ratio
             point[0] = round(point[0] / grid) * grid
@@ -280,8 +287,13 @@ def paint_edit(window: Any) -> None:
 
 
 def finish_edit(window: Any) -> None:
-    drag, window._bezier_drag = window._bezier_drag, None
+    drag = window._bezier_drag
     window.drag_paint_timer.stop()
+    if drag["draft"] == drag["drawing"]:
+        paint_edit(window)
+        window._bezier_drag = None
+        return
+    window._bezier_drag = None
     graph = window.graph()
     drawings = tuple(
         drag["draft"] if i == drag["index"] else d for i, d in enumerate(graph.drawings)
