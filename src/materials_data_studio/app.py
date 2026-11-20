@@ -17,7 +17,7 @@ from materials_data_studio.core.recovery import find_recovery_candidates
 from materials_data_studio.core.session import load_session
 from materials_data_studio.core.settings import create_settings
 from materials_data_studio.ui.input_wheel_guard import install_input_wheel_guard
-from materials_data_studio.ui.theme import style_sheet
+from materials_data_studio.ui.theme import apply_application_theme
 
 LOGGER = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ def main() -> int:
     theme = str(create_settings().value("appearance/theme", "light"))
     if theme not in {"light", "dark"}:
         theme = "light"
-    application.setStyleSheet(style_sheet(theme))
+    apply_application_theme(application, theme)
     resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
     icon_path = resource_root / "resources" / "icons" / "materials-data-studio.ico"
     if icon_path.is_file():

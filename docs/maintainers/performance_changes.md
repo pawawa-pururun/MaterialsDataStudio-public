@@ -149,12 +149,23 @@ with the Cu doublet.
 
 | Measurement / 測定 | v0.15.4 | Development / 開発版 |
 | --- | ---: | ---: |
-| Main window ready / メイン画面初回表示 | 1.361 s | 1.396 s |
 | CIF file read through editor construction / CIF読込からエディター生成 | 412 ms | 48 ms |
 | Apply CIF tables / CIF表を適用 | 371 ms | 7 ms |
 | XRD plot refresh / XRDグラフ更新 | 6.5 ms | 7.0 ms |
 | Three profile changes and Qt events / 3項目の更新と描画イベント | | 18.7 ms |
 | Cu cursor readout and Qt events / Cuカーソルと描画イベント | | 9.9 ms |
+
+The application now initializes the palette and stylesheet once before creating
+its windows. Initial View-menu setup leaves deferred module tabs unloaded.
+The startup probe also initializes the theme before constructing the window.
+Three fresh-process source runs with the light theme gave these medians. The
+MDSS and MDSG rows measure document readiness in the main-window probe.
+
+| Startup / 起動 | v0.15.4 | Development / 開発版 |
+| --- | ---: | ---: |
+| Blank main window / 空のメイン画面 | 2.070 s | 1.610 s |
+| MDSS open / MDSS読込 | 2.221 s | 1.737 s |
+| MDSG open from main window / メイン画面からMDSG読込 | 3.494 s | 2.283 s |
 
 Size and strain widths use Scherrer and isotropic strain terms combined in
 quadrature with the base Gaussian width. Broadening preserves relative
@@ -172,7 +183,9 @@ CIFサイト表の抽出・保存では、Gemmiから行ごとに表全体を取
 タブを開いた時点で準備します。粒径・歪み・選択配向の変更は既存の反射を使って描画データを
 更新します。カーソルのマウス移動処理は有効化時だけ接続します。
 
-上表はWindows x64・Python 3.12.14で、v0.15.4と開発版を交互に5回起動した中央値です。
+操作の比較はWindows x64・Python 3.12.14で、v0.15.4と開発版を交互に5回計測した中央値です。
 合成CIFは2,500サイト、グラフは測定100,000点と計算200反射のCu二重線で、OSキャッシュは
-制御していません。選択配向には等価反射を含むMarch–Dollase補正を適用します。
+制御していません。起動時の配色・スタイルシートを一度に設定し、Viewメニューは使用時に
+対象モジュールの表示操作を取り込みます。起動の比較はライトテーマで各3回の中央値です。
+選択配向には等価反射を含むMarch–Dollase補正を適用します。
 異なる反射族が同じピークに合算されている場合は、等価反射で平均して表示します。
