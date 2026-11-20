@@ -13,7 +13,7 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
-from materials_data_studio.core.exceptions import AnalysisError
+from materials_data_studio.core.exceptions import AnalysisError, CifValidationError
 from materials_data_studio.modules.xrd.cif_backend import (
     CifDocument,
     UnitCell,
@@ -208,13 +208,19 @@ def _build_occupancy_preview_model(
     rows: list[NDArray[np.complex128]] = []
     peak_indices: list[int] = []
     lorentz_factors: list[float] = []
+    if not len(positions):
+        return None
     for hkl_values, g_hkl, _index, _image in reciprocal_points:
         if not (g_hkl >= min_r and g_hkl > 0):
             continue
         hkl = np.asarray([round(value) for value in hkl_values], dtype=float)
         theta = math.asin(wavelength_a * g_hkl / 2.0)
         two_theta = math.degrees(2.0 * theta)
-        nearest = int(np.argmin(np.abs(positions - two_theta)))
+        insertion = int(np.searchsorted(positions, two_theta))
+        nearest = min(
+            (max(0, insertion - 1), min(insertion, len(positions) - 1)),
+            key=lambda index: abs(float(positions[index]) - two_theta),
+        )
         if abs(float(positions[nearest]) - two_theta) >= 1.0e-4:
             continue
         s2 = (g_hkl / 2.0) ** 2
@@ -263,7 +269,11 @@ def _pymatgen_classes():  # type: ignore[no-untyped-def]
 @lru_cache(maxsize=8)
 def _parsed_structure(text: str):
     from pymatgen.core import Structure
-    _document, block = read_cif_structure(text)
+    try:
+        _document, block = read_cif_structure(text)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        raise CifValidationError(f"The edited CIF is invalid: {exc}") from exc
+    validate_cif_text(text, block=block)
     return Structure.from_str(block.as_string(), fmt="cif")
 
 
@@ -280,7 +290,6 @@ def simulate_cif(
     occupancy_preview: bool = True,
 ) -> SimulatedPattern:
     """Simulate sticks and an optional Gaussian display profile from edited CIF."""
-    validate_cif_text(document.edited_text)
     _Structure, XRDCalculator = _pymatgen_classes()
     try:
         structure = _parsed_structure(document.edited_text).copy()
@@ -288,6 +297,8 @@ def simulate_cif(
         pattern = calculator_class(wavelength=wavelength_a).get_pattern(
             structure, two_theta_range=two_theta_range
         )
+    except CifValidationError:
+        raise
     except Exception as exc:
         raise AnalysisError(f"Could not simulate the CIF pattern: {exc}") from exc
     positions = np.asarray(pattern.x, dtype=float)
@@ -439,6 +450,9 @@ def broaden_pattern(
     profile_points: int | None = None,
     radiation: str = "Custom",
     alpha2_ratio: float = 0.5,
+    wavelength_a: float = 1.540598,
+    particle_size_nm: float = 0.0,
+    strain: float = 0.0,
 ) -> SimulatedPattern:
     """Create a Gaussian profile from existing sticks without rerunning diffraction."""
     if fwhm_deg <= 0:
@@ -456,8 +470,8 @@ def broaden_pattern(
     # Gaussian values beyond six sigma are below 1.6e-8 of the peak. Updating
     # only that local window avoids allocating/evaluating the complete profile
     # once per reflection and keeps live lattice previews comfortably interactive.
-    half_window = 6.0 * sigma
     positions, intensities = pattern.two_theta_deg, pattern.intensity
+    wavelengths = np.full(len(positions), wavelength_a) if particle_size_nm > 0 else None
     if radiation == "Cu Kα1/2":
         from materials_data_studio.modules.xrd.radiation import CU_ALPHA1, CU_ALPHA2
         if not np.isfinite(alpha2_ratio) or not 0 <= alpha2_ratio <= 1:
@@ -466,12 +480,23 @@ def broaden_pattern(
         valid = (arguments > 0) & (arguments < 1)
         positions = np.concatenate([positions, np.rad2deg(2 * np.arcsin(arguments[valid]))])
         intensities = np.concatenate([intensities, intensities[valid] * alpha2_ratio])
-    for position, intensity in zip(positions, intensities, strict=True):
-        start = int(np.searchsorted(profile_x, position - half_window, side="left"))
-        stop = int(np.searchsorted(profile_x, position + half_window, side="right"))
+        if wavelengths is not None:
+            wavelengths = np.concatenate([np.full(len(arguments), CU_ALPHA1), np.full(np.count_nonzero(valid), CU_ALPHA2)])
+    widths = np.full(len(positions), sigma)
+    if particle_size_nm > 0 or strain > 0:
+        theta = np.deg2rad(positions / 2)
+        cos_theta = np.maximum(np.cos(theta), 1e-6)
+        size_width = 0.0 if wavelengths is None else 0.9 * wavelengths / (10 * particle_size_nm * cos_theta)
+        strain_width = 4 * strain * np.tan(theta)
+        factor = np.rad2deg(1.) / (2 * np.sqrt(2 * np.log(2.)))
+        widths = np.sqrt(sigma**2 + (factor * size_width)**2 + (factor * strain_width)**2)
+        intensities = intensities * sigma / widths
+    starts = np.searchsorted(profile_x, positions - 6 * widths, side="left")
+    stops = np.searchsorted(profile_x, positions + 6 * widths, side="right")
+    for position, intensity, width, start, stop in zip(positions, intensities, widths, starts, stops, strict=True):
         if start >= stop:
             continue
-        delta = (profile_x[start:stop] - position) / sigma
+        delta = (profile_x[start:stop] - position) / width
         profile_y[start:stop] += intensity * np.exp(-0.5 * delta**2)
     if np.max(profile_y) > 0:
         profile_y *= 100.0 / np.max(profile_y)

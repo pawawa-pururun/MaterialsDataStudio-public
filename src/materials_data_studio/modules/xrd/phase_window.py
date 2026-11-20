@@ -169,7 +169,7 @@ class PhaseSearchWindow(QDialog):
         self.candidate_table.itemChanged.connect(self._candidate_checked)
         self.candidate_check_filter = CandidateCheckFilter(self.candidate_table)
         self.candidate_table.viewport().installEventFilter(self.candidate_check_filter)
-        self.plot = create_plot_widget()
+        self.plot = create_plot_widget(cursor=False)
         self.scale_filter = StickScaleFilter(self.plot)
         self.plot.viewport().installEventFilter(self.scale_filter)
         self.scale_filter.scaled.connect(self.scale_sticks)

@@ -27,10 +27,12 @@ from PySide6.QtWidgets import (
 from materials_data_studio.modules.xrd.cif_backend import (
     AtomSite,
     CifDocument,
+    SpaceGroupInfo,
     UnitCell,
     constrain_unit_cell,
     extract_cif_symmetry,
     extract_cif_tables,
+    read_cif_structure,
     resolve_space_group,
     save_cif_as,
     update_cif_tables,
@@ -38,6 +40,12 @@ from materials_data_studio.modules.xrd.cif_backend import (
 from materials_data_studio.ui.numeric_inputs import (
     FlexibleDoubleSpinBox as QDoubleSpinBox,
 )
+
+
+def cif_editor_tables(document: CifDocument) -> tuple[UnitCell, list[AtomSite], list[str], SpaceGroupInfo]:
+    """Read both editor tabs from the same structural block."""
+    _parsed, block = read_cif_structure(document.edited_text)
+    return (*extract_cif_tables(document, block=block), extract_cif_symmetry(document, block=block))
 
 
 class CifEditorDialog(QDialog):
@@ -49,14 +57,15 @@ class CifEditorDialog(QDialog):
         parent: QWidget | None = None,
         *,
         simulation_settings: dict[str, Any] | None = None,
+        tables: tuple[UnitCell, list[AtomSite], list[str], SpaceGroupInfo] | None = None,
     ) -> None:
         super().__init__(parent)
         self.document = document
         self.setWindowTitle(f"CIF Editor — {document.source_path.name}")
         self.resize(880, 620)
-        self.cell, self.sites, warnings = extract_cif_tables(document)
-        self.symmetry = extract_cif_symmetry(document)
+        self.cell, self.sites, warnings, self.symmetry = tables or cif_editor_tables(document)
         self._updating_cell = False
+        self._sites_loaded = False
         self._cell_fields: dict[str, QDoubleSpinBox] = {}
         self._build_ui(warnings)
         self._load_tables()
@@ -114,6 +123,9 @@ class CifEditorDialog(QDialog):
         site_buttons.addStretch(1)
         site_layout.addLayout(site_buttons)
         tabs.addTab(site_page, "Atom Sites")
+        tabs.currentChanged.connect(
+            lambda index: self._load_site_rows() if tabs.widget(index) is site_page and not self._sites_loaded else None
+        )
 
         simulation_page = QWidget()
         simulation_form = QFormLayout(simulation_page)
@@ -161,9 +173,8 @@ class CifEditorDialog(QDialog):
 
         layout = QVBoxLayout(self)
         if warnings:
-            warning_label = QLabel("\n".join(warnings))
+            warning_label = QLabel("The structure includes sites with partial occupancy.")
             warning_label.setWordWrap(True)
-            warning_label.setStyleSheet("color: #9A6700;")
             layout.addWidget(warning_label)
         layout.addWidget(tabs)
         utility_row = QHBoxLayout()
@@ -216,25 +227,37 @@ class CifEditorDialog(QDialog):
             field.setValue(float(getattr(self.cell, name)))
         self._updating_cell = False
         self._apply_symmetry_constraints()
-        self.site_table.setRowCount(len(self.sites))
-        for row, site in enumerate(self.sites):
-            values = (
-                site.label,
-                site.species,
-                f"{site.fract_x:.12g}",
-                f"{site.fract_y:.12g}",
-                f"{site.fract_z:.12g}",
-                f"{site.occupancy:.12g}",
-                "" if site.displacement is None else f"{site.displacement:.12g}",
-            )
-            for column, value in enumerate(values):
-                self.site_table.setItem(row, column, QTableWidgetItem(value))
+        if self._sites_loaded:
+            self._load_site_rows()
+
+    def _load_site_rows(self) -> None:
+        self._sites_loaded = True
+        # Avoid recalculating table geometry/painting for every inserted cell.
+        self.site_table.setUpdatesEnabled(False)
+        try:
+            self.site_table.setRowCount(len(self.sites))
+            for row, site in enumerate(self.sites):
+                values = (
+                    site.label,
+                    site.species,
+                    f"{site.fract_x:.12g}",
+                    f"{site.fract_y:.12g}",
+                    f"{site.fract_z:.12g}",
+                    f"{site.occupancy:.12g}",
+                    "" if site.displacement is None else f"{site.displacement:.12g}",
+                )
+                for column, value in enumerate(values):
+                    self.site_table.setItem(row, column, QTableWidgetItem(value))
+        finally:
+            self.site_table.setUpdatesEnabled(True)
 
     def _read_tables(self) -> tuple[UnitCell, list[AtomSite]]:
         cell = constrain_unit_cell(
             UnitCell(**{name: field.value() for name, field in self._cell_fields.items()}),
             self.symmetry,
         )
+        if not self._sites_loaded:
+            return cell, self.sites
         sites = []
         for row in range(self.site_table.rowCount()):
             values = []
@@ -295,10 +318,8 @@ class CifEditorDialog(QDialog):
 
     def _apply_tables(self) -> None:
         cell, sites = self._read_tables()
-        warnings = update_cif_tables(self.document, cell, sites, self.symmetry)
+        update_cif_tables(self.document, cell, sites, self.symmetry)
         self.cell, self.sites = cell, sites
-        if warnings:
-            QMessageBox.warning(self, "Partial Occupancy", "\n".join(warnings))
 
     def _add_site(self) -> None:
         row = self.site_table.rowCount()
@@ -329,8 +350,7 @@ class CifEditorDialog(QDialog):
 
     def _revert(self) -> None:
         self.document.revert()
-        self.cell, self.sites, _ = extract_cif_tables(self.document)
-        self.symmetry = extract_cif_symmetry(self.document)
+        self.cell, self.sites, _, self.symmetry = cif_editor_tables(self.document)
         self.space_group_name.setText(self.symmetry.name)
         self.space_group_number.setText(str(self.symmetry.number))
         self.crystal_system.setText(self.symmetry.crystal_system.title())

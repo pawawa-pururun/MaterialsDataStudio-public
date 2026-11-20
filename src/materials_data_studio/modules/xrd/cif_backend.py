@@ -174,10 +174,11 @@ def resolve_space_group(name: str = "", number: int = 0) -> SpaceGroupInfo:
     )
 
 
-def extract_cif_symmetry(document: CifDocument) -> SpaceGroupInfo:
+def extract_cif_symmetry(document: CifDocument, *, block: Any = None) -> SpaceGroupInfo:
     """Read the supplied space-group symbol/number without changing its setting."""
     try:
-        _parsed, block = read_cif_structure(document.edited_text)
+        if block is None:
+            _parsed, block = read_cif_structure(document.edited_text)
         name = next(
             (
                 block.find_value(tag)
@@ -255,10 +256,11 @@ def constrain_unit_cell(
     return UnitCell(**values)
 
 
-def validate_cif_text(text: str) -> None:
+def validate_cif_text(text: str, *, block: Any = None) -> None:
     """Validate edited CIF syntax and basic cell geometry."""
     try:
-        _document, block = read_cif_structure(text)
+        if block is None:
+            _document, block = read_cif_structure(text)
         lengths = [
             parse_cif_number(block.find_value(tag))
             for tag in ("_cell_length_a", "_cell_length_b", "_cell_length_c")
@@ -275,10 +277,11 @@ def validate_cif_text(text: str) -> None:
         raise CifValidationError("Unit-cell angles must be between 0 and 180 degrees.")
 
 
-def extract_cif_tables(document: CifDocument) -> tuple[UnitCell, list[AtomSite], list[str]]:
+def extract_cif_tables(document: CifDocument, *, block: Any = None) -> tuple[UnitCell, list[AtomSite], list[str]]:
     """Extract editable cell/site tables while reporting partial occupancy."""
     try:
-        _parsed, block = read_cif_structure(document.edited_text)
+        if block is None:
+            _parsed, block = read_cif_structure(document.edited_text)
         cell = UnitCell(
             *[
                 parse_cif_number(block.find_value(tag))
@@ -317,23 +320,23 @@ def extract_cif_tables(document: CifDocument) -> tuple[UnitCell, list[AtomSite],
             None,
         )
         displacement_index = tags.index(displacement_tag) if displacement_tag else None
-        rows = [
-            loop.values[start : start + loop.width()]
-            for start in range(0, len(loop.values), loop.width())
-        ]
+        values = loop.values
+        width = loop.width()
+        gemmi = _gemmi()
         sites = []
         warnings = []
-        for row in rows:
-            label = str(_gemmi().cif.as_string(row[indices["label"]]))
+        for start in range(0, len(values), width):
+            row = values[start : start + width]
+            label = str(gemmi.cif.as_string(row[indices["label"]]))
             if species_index is None:
                 # CIF permits atom labels to supply the element when type_symbol
                 # is absent (common in older COD entries). Do not alter source.
                 match = re.match(r"([A-Z][a-z]?)", label)
                 species = match.group(1) if match else ""
-                if not species or _gemmi().Element(species).atomic_number < 1:
+                if not species or gemmi.Element(species).atomic_number < 1:
                     raise ValueError(f"Cannot infer the element from atom label '{label}'.")
             else:
-                species = str(_gemmi().cif.as_string(row[species_index]))
+                species = str(gemmi.cif.as_string(row[species_index]))
             occupancy = (
                 parse_cif_number(row[occupancy_index])
                 if occupancy_index is not None and row[occupancy_index] not in {"?", "."}
@@ -463,13 +466,15 @@ def update_cif_tables(
             loop.add_columns([displacement_tag], "?")
             tags = list(loop.tags)
 
-        old_rows = [
-            list(loop.values[start : start + loop.width()])
-            for start in range(0, len(loop.values), loop.width())
-        ]
+        # Gemmi materializes loop.values as a Python list on every access.
+        # Read it once, even for CIFs with thousands of sites.
+        old_values = loop.values
+        width = loop.width()
+        tag_indices = {tag: index for index, tag in enumerate(tags)}
         new_rows: list[list[str]] = []
         for row_index, site in enumerate(sites):
-            row = old_rows[row_index] if row_index < len(old_rows) else ["?"] * len(tags)
+            start = row_index * width
+            row = old_values[start : start + width] if start < len(old_values) else ["?"] * width
             replacements: dict[str, Any] = {
                 "_atom_site_label": site.label.strip(),
                 "_atom_site_type_symbol": site.species.strip(),
@@ -483,7 +488,7 @@ def update_cif_tables(
                     "?" if site.displacement is None else site.displacement
                 )
             for tag, value in replacements.items():
-                row[tags.index(tag)] = str(value)
+                row[tag_indices[tag]] = str(value)
             new_rows.append(row)
         columns = [[row[column] for row in new_rows] for column in range(len(tags))]
         loop.set_all_values(columns)

@@ -5,6 +5,8 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import logging
+import math
+from contextlib import suppress
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any, cast
@@ -12,7 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF, Qt, QThreadPool, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -56,7 +58,8 @@ from materials_data_studio.modules.xrd.cif_backend import (
     load_cif,
     update_cif_tables,
 )
-from materials_data_studio.modules.xrd.cif_editor import CifEditorDialog
+from materials_data_studio.modules.xrd.cif_editor import CifEditorDialog, cif_editor_tables
+from materials_data_studio.modules.xrd.cif_profile import apply_cif_profile
 from materials_data_studio.modules.xrd.constants import WAVELENGTH_PRESETS_A
 from materials_data_studio.modules.xrd.dataset_tree import XrdDatasetTree
 from materials_data_studio.modules.xrd.display_cache import DisplayDataCache
@@ -67,10 +70,10 @@ from materials_data_studio.modules.xrd.parser import (
     parse_xrd_text,
 )
 from materials_data_studio.modules.xrd.peak_fitting.models import PeakFitResult
+from materials_data_studio.modules.xrd.radiation import CU_ALPHA1, CU_ALPHA2, CU_BETA
 from materials_data_studio.modules.xrd.simulation import (
     OccupancyPreviewModel,
     SimulatedPattern,
-    broaden_pattern,
     display_pattern_data,
     preview_pattern_for_cell,
     preview_pattern_for_occupancies,
@@ -81,7 +84,9 @@ from materials_data_studio.modules.xrd.simulation import (
 from materials_data_studio.modules.xrd.transforms import (
     convert_x_axis,
     normalization_factor,
+    tof_to_d,
 )
+from materials_data_studio.plotting.interactive_cursor import PlotCursor
 from materials_data_studio.plotting.matplotlib_backend import (
     FIGURE_FILE_FILTERS,
     export_figure,
@@ -100,9 +105,14 @@ from materials_data_studio.ui.dialogs import show_error, show_warning
 from materials_data_studio.ui.numeric_inputs import (
     FlexibleDoubleSpinBox as QDoubleSpinBox,
 )
-from materials_data_studio.ui.panels import dataset_context, install_settings_panel, reveal_settings
+from materials_data_studio.ui.panels import (
+    compact_forms,
+    dataset_context,
+    install_settings_panel,
+    reveal_settings,
+)
 from materials_data_studio.ui.style_inputs import ColorEdit, FontEdit, StyleCombo
-from materials_data_studio.ui.tasks import run_task
+from materials_data_studio.ui.tasks import blocking_task, run_task
 from materials_data_studio.ui.workspace_layout import WorkspaceSplitter, install_workspace
 
 LOGGER = logging.getLogger(__name__)
@@ -175,6 +185,17 @@ class XrdWidget(QWidget):
         self._peak_label.hide()
         cast(Any, self.plot_widget.scene()).sigMouseMoved.connect(self._show_cif_peak_hover)
         self._build_controls()
+        cursor = cast(PlotCursor, self.plot_widget._materials_cursor)
+        cursor.xrd_readout = self._cursor_readout
+        radiation_guides = QAction("Cu Kα2 and Kβ Guides", self.plot_widget)
+        radiation_guides.setCheckable(True)
+        radiation_guides.toggled.connect(lambda enabled: cursor.action.setChecked(True) if enabled else cursor.hide())
+        cursor.radiation_action = radiation_guides
+        plot_item = self.plot_widget.getPlotItem()
+        assert plot_item is not None
+        menu = plot_item.getMenu()
+        assert menu is not None
+        menu.addAction(radiation_guides)
         self.legend_context_action = install_legend_toggle(
             self.plot_widget,
             self.legend_enabled.setChecked,
@@ -293,6 +314,7 @@ class XrdWidget(QWidget):
         self.lattice_sliders: dict[str, QSlider] = {}
         for name in ("a", "b", "c", "alpha", "beta", "gamma"):
             field = QDoubleSpinBox()
+            field.setSingleStep(0.01 if name in {"a", "b", "c"} else 0.1)
             field.setDecimals(8)
             field.setMinimumWidth(104)
             field.setRange(
@@ -319,6 +341,7 @@ class XrdWidget(QWidget):
             slider.sliderReleased.connect(self._flush_lattice_recalculation)
             self.lattice_sliders[name] = slider
         self.lattice_relative_scale = QDoubleSpinBox()
+        self.lattice_relative_scale.setSingleStep(0.1)
         self.lattice_relative_scale.setDecimals(6)
         self.lattice_relative_scale.setRange(0.0, 1.0e6)
         self.lattice_relative_scale.setValue(1.0)
@@ -553,6 +576,12 @@ class XrdWidget(QWidget):
         live_note.setWordWrap(True)
         lattice_form.addRow(live_note)
         self.lattice_card.setVisible(False)
+        self.size_strain_card = QGroupBox("Particle size & strain")
+        self.orientation_card = QGroupBox("Preferred orientation")
+        self._size_strain_form = QFormLayout(self.size_strain_card)
+        self._orientation_form = QFormLayout(self.orientation_card)
+        self._cif_profile_controls_ready = False
+        self._show_cif_profile_controls(False)
         self.peak_fitting_card = QGroupBox("CIF-Constrained Peak Fitting")
         peak_fitting_layout = QVBoxLayout(self.peak_fitting_card)
         peak_fitting_layout.addWidget(self.open_phase_search_button)
@@ -564,6 +593,8 @@ class XrdWidget(QWidget):
         right_layout.addWidget(figure_card)
         right_layout.addWidget(self.background_card)
         right_layout.addWidget(self.lattice_card)
+        right_layout.addWidget(self.size_strain_card)
+        right_layout.addWidget(self.orientation_card)
         right_layout.addWidget(self.peak_fitting_card)
         right_layout.addStretch(1)
         right_scroll = QScrollArea()
@@ -680,9 +711,17 @@ class XrdWidget(QWidget):
 
     def _import_cif(self, path: Path) -> None:
         """Edit and simulate a CIF as a non-destructive phase dataset."""
-        document = load_cif(path)
-        dialog = CifEditorDialog(document, self, simulation_settings={"radiation": self.wavelength_preset.currentText(), "wavelength_a": self.wavelength.value()})
+        def prepare():
+            document = load_cif(path)
+            return document, cif_editor_tables(document)
+
+        try:
+            document, tables = blocking_task(self, "Read CIF structure", prepare)
+        except InterruptedError:
+            return
+        dialog = CifEditorDialog(document, self, tables=tables, simulation_settings={"radiation": self.wavelength_preset.currentText(), "wavelength_a": self.wavelength.value()})
         if dialog.exec() != CifEditorDialog.DialogCode.Accepted:
+            dialog.deleteLater()
             return
         settings = {
             "wavelength_a": dialog.wavelength.value(),
@@ -697,6 +736,7 @@ class XrdWidget(QWidget):
             "vertical_offset": dialog.vertical_offset.value(),
             "target_dataset_id": None,
         }
+        dialog.deleteLater()
         self._queue_cif(path, document, settings)
 
     def _queue_cif(self, path: Path, document: CifDocument, settings: dict[str, Any]) -> None:
@@ -730,6 +770,13 @@ class XrdWidget(QWidget):
             None,
         )
         if target is not None:
+            profile_settings = {**target.metadata, **settings, "space_group_name": symmetry.name}
+            if any(profile_settings.get(key) for key in (
+                "preferred_orientation", "particle_size_nm", "isotropic_strain_percent",
+            )):
+                cell = dataclasses.astuple(extract_cif_tables(document)[0]) if profile_settings.get("preferred_orientation") else ()
+                pattern = apply_cif_profile(pattern, profile_settings, cell=cell)
+                x_values, intensity = display_pattern_data(pattern, settings.get("radiation", "Custom"))
             target.processed_data.clear()
             target.processed_data["x"] = np.asarray(x_values, dtype=float)
             target.processed_data["intensity"] = np.asarray(intensity, dtype=float)
@@ -741,7 +788,7 @@ class XrdWidget(QWidget):
                     "offset": settings["vertical_offset"],
                     "edited_cif": document.edited_text,
                     "stick_two_theta_deg": pattern.two_theta_deg.tolist(),
-                    "stick_intensity": pattern.intensity.tolist(),
+                    "stick_intensity": result.intensity.tolist(),
                     "stick_hkl_labels": pattern.hkl_labels or [],
                     "stick_d_spacing_a": (
                         pattern.d_spacing_a.tolist() if pattern.d_spacing_a is not None else []
@@ -758,6 +805,7 @@ class XrdWidget(QWidget):
             )
             target.plot_style.line_style = "-"
             target.plot_style.marker = "none"
+            self._occupancy_preview_models.pop(target.dataset_id, None)
             if pattern.occupancy_model is not None:
                 self._occupancy_preview_models[target.dataset_id] = pattern.occupancy_model
             store_occupancy_preview_model(
@@ -895,6 +943,7 @@ class XrdWidget(QWidget):
             "profile_step_deg": float(dataset.metadata.get("profile_step_deg", 0.01)),
             "relative_scale": float(dataset.metadata.get("scale", 1.0)),
             "vertical_offset": float(dataset.metadata.get("offset", 0.0)),
+            "profile_cell": dataclasses.astuple(cell),
             "target_dataset_id": dataset.dataset_id,
         }
         request = _LiveCifRequest(
@@ -952,18 +1001,7 @@ class XrdWidget(QWidget):
         )
         if target is None:
             return
-        fwhm = target.metadata.get("fwhm_deg", 0.15)
-        pattern = (
-            result
-            if fwhm is None
-            else broaden_pattern(
-                result,
-                two_theta_range=tuple(request.settings["two_theta_range"]),
-                fwhm_deg=float(fwhm),
-                profile_step_deg=float(target.metadata.get("profile_step_deg", 0.01)),
-                radiation=str(target.metadata.get("radiation", "Custom")),
-            )
-        )
+        pattern = apply_cif_profile(result, target.metadata, cell=request.settings.get("profile_cell", ()))
         x_values, intensity = display_pattern_data(pattern, target.metadata.get("radiation", "Custom"))
         target.processed_data.clear()
         target.processed_data["x"] = np.asarray(x_values, dtype=float)
@@ -971,7 +1009,7 @@ class XrdWidget(QWidget):
         symmetry = extract_cif_symmetry(request.document)
         metadata: dict[str, Any] = {
             "stick_two_theta_deg": pattern.two_theta_deg.tolist(),
-            "stick_intensity": pattern.intensity.tolist(),
+            "stick_intensity": result.intensity.tolist(),
             "stick_hkl_labels": pattern.hkl_labels or [],
             "stick_d_spacing_a": (
                 pattern.d_spacing_a.tolist() if pattern.d_spacing_a is not None else []
@@ -984,6 +1022,7 @@ class XrdWidget(QWidget):
         }
         metadata["edited_cif"] = request.document.edited_text
         target.metadata.update(metadata)
+        self._occupancy_preview_models.pop(target.dataset_id, None)
         if result.occupancy_model is not None:
             self._occupancy_preview_models[target.dataset_id] = result.occupancy_model
         store_occupancy_preview_model(
@@ -1034,6 +1073,131 @@ class XrdWidget(QWidget):
             self.wavelength.setValue(value)
         self._apply_selected_settings()
 
+    def _cursor_readout(self, x: float, radiation: bool) -> tuple[str, list[tuple[str, float]]]:
+        axis = AxisType(str(self.display_axis.currentData()))
+        wavelength = CU_ALPHA1 if radiation and axis == AxisType.TWO_THETA else self.wavelength.value()
+        angle = math.nan
+        spacing = math.nan
+        if axis == AxisType.TWO_THETA:
+            angle = x
+            if 0 < angle <= 180:
+                spacing = wavelength / (2 * math.sin(math.radians(angle / 2)))
+        else:
+            if axis == AxisType.D_SPACING:
+                spacing = x
+            elif axis == AxisType.INV_D and x > 0:
+                spacing = 1 / x
+            elif axis == AxisType.TOF:
+                with suppress(InvalidAxisConversionError):
+                    spacing = float(tof_to_d(x, TofCalibration(
+                        self.difa.value(), self.difc.value(), self.tzero.value()
+                    )).item())
+            if spacing >= wavelength / 2:
+                angle = math.degrees(2 * math.asin(wavelength / (2 * spacing)))
+        guides = []
+        if radiation and axis == AxisType.TWO_THETA and math.isfinite(spacing):
+            for label, wave in (("Cu Kα2", CU_ALPHA2), ("Cu Kβ", CU_BETA)):
+                if spacing >= wave / 2:
+                    guides.append((label, math.degrees(2 * math.asin(wave / (2 * spacing)))))
+        angle_text = f"{angle:.6g}°" if math.isfinite(angle) else "—"
+        spacing_text = f"{spacing:.6g} Å" if math.isfinite(spacing) and spacing > 0 else "—"
+        other = "" if axis in (AxisType.TWO_THETA, AxisType.D_SPACING) else f"{AXIS_LABELS[axis]} = {x:.6g} · "
+        return f"{other}2θ = {angle_text} · d = {spacing_text}", guides
+
+    def _build_cif_profile_controls(self) -> None:
+        size_form = self._size_strain_form
+        self.particle_size = QDoubleSpinBox()
+        self.particle_size.setRange(0, 100000)
+        self.particle_size.setDecimals(2)
+        self.particle_size.setKeyboardTracking(False)
+        self.particle_size.valueChanged.connect(self._cif_profile_changed)
+        self.isotropic_strain = QDoubleSpinBox()
+        self.isotropic_strain.setDecimals(4)
+        self.isotropic_strain.setRange(0, 20)
+        self.isotropic_strain.setSingleStep(0.01)
+        self.isotropic_strain.setKeyboardTracking(False)
+        self.isotropic_strain.valueChanged.connect(self._cif_profile_changed)
+        size_form.addRow("Particle size (nm)", self.particle_size)
+        size_form.addRow("Iso strain (%)", self.isotropic_strain)
+
+        form = self._orientation_form
+        self.orientation_enabled = QCheckBox("Enable preferred orientation")
+        form.addRow(self.orientation_enabled)
+        self.orientation_geometry = QComboBox()
+        self.orientation_geometry.setProperty("mdsTranslateItems", True)
+        self.orientation_geometry.addItem("Plates", "plates")
+        self.orientation_geometry.addItem("Needles", "needles")
+        form.addRow("Particle geometry", self.orientation_geometry)
+        self.orientation_hkl = tuple(QSpinBox() for _ in range(3))
+        indices = QHBoxLayout()
+        for field, name, default in zip(self.orientation_hkl, "hkl", (0, 0, 1), strict=True):
+            field.setAccessibleName(name)
+            field.setRange(-99, 99)
+            field.setValue(default)
+            field.setKeyboardTracking(False)
+            indices.addWidget(field)
+            field.valueChanged.connect(self._cif_profile_changed)
+        form.addRow("Orientation (h k l)", indices)
+        self.orientation_alignment = QDoubleSpinBox()
+        self.orientation_alignment.setDecimals(3)
+        self.orientation_alignment.setRange(0.1, 1)
+        self.orientation_alignment.setSingleStep(0.05)
+        self.orientation_alignment.setValue(1.0)
+        self.orientation_alignment.setKeyboardTracking(False)
+        self.orientation_alignment.setToolTip("1 = random orientation; lower values increase alignment.")
+        form.addRow("Alignment", self.orientation_alignment)
+        self.orientation_alignment.valueChanged.connect(self._cif_profile_changed)
+        self.orientation_geometry.currentIndexChanged.connect(self._cif_profile_changed)
+        self.orientation_enabled.toggled.connect(self._cif_profile_changed)
+        from materials_data_studio.ui.localization import translate_tree
+
+        for card in (self.size_strain_card, self.orientation_card):
+            compact_forms(card)
+            translate_tree(card)
+        self._cif_profile_controls_ready = True
+
+    def _show_cif_profile_controls(self, visible: bool) -> None:
+        for card in (self.size_strain_card, self.orientation_card):
+            card.setProperty("settingsAvailable", visible)
+            card.setVisible(visible)
+
+    def _enable_cif_orientation_fields(self, enabled: bool) -> None:
+        for field in (self.orientation_geometry, *self.orientation_hkl, self.orientation_alignment):
+            field.setEnabled(enabled)
+
+    def _cif_profile_changed(self) -> None:
+        enabled = self.orientation_enabled.isChecked()
+        self._enable_cif_orientation_fields(enabled)
+        if self._lattice_loading:
+            return
+        dataset = self.dataset_list.current_dataset()
+        if dataset is None or not dataset.metadata.get("is_simulated_phase") or dataset.metadata.get("is_reference_pattern"):
+            return
+        dataset.metadata.update(
+            particle_size_nm=self.particle_size.value(),
+            isotropic_strain_percent=self.isotropic_strain.value(),
+            preferred_orientation=enabled,
+            orientation_geometry=self.orientation_geometry.currentData(),
+            orientation_hkl=[field.value() for field in self.orientation_hkl],
+            orientation_alignment=self.orientation_alignment.value(),
+        )
+        self.state.modified = True
+        self._apply_current_cif_profile(dataset)
+
+    def _load_cif_profile(self, dataset: Dataset) -> None:
+        if not self._cif_profile_controls_ready:
+            self._build_cif_profile_controls()
+        settings = dataset.metadata
+        self.particle_size.setValue(float(settings.get("particle_size_nm", 0)))
+        self.isotropic_strain.setValue(float(settings.get("isotropic_strain_percent", 0)))
+        self.orientation_geometry.setCurrentIndex(int(settings.get("orientation_geometry") == "needles"))
+        for field, value in zip(self.orientation_hkl, settings.get("orientation_hkl", (0, 0, 1)), strict=False):
+            field.setValue(int(value))
+        self.orientation_alignment.setValue(float(settings.get("orientation_alignment", 1)))
+        enabled = bool(settings.get("preferred_orientation", False))
+        self.orientation_enabled.setChecked(enabled)
+        self._enable_cif_orientation_fields(enabled)
+
     def _log_scale_changed(self, enabled: bool) -> None:
         """Switch stacking controls between additive and multiplicative semantics."""
         labels = (
@@ -1063,6 +1227,7 @@ class XrdWidget(QWidget):
     def _load_selected(self, dataset: Dataset | None) -> None:
         dataset_context(self, dataset)
         if dataset is None:
+            self._show_cif_profile_controls(False)
             return
         kind = dataset.metadata.get("phase_annotation")
         if kind == "ticks" and dataset.metadata.get("tick_marker_version") != 1:
@@ -1160,6 +1325,7 @@ class XrdWidget(QWidget):
         has_structure = is_cif and not dataset.metadata.get("is_reference_pattern")
         self.background_card.setVisible(not is_cif and not kind)
         self.lattice_card.setVisible(has_structure)
+        self._show_cif_profile_controls(has_structure)
         if has_structure:
             reveal_settings(self.lattice_card)
         self.edit_cif_button.setEnabled(has_structure)
@@ -1169,9 +1335,10 @@ class XrdWidget(QWidget):
             else "Reference sticks have no atomic coordinates. Fetch the CIF in Phase Search and add the phase again, or select a simulated CIF dataset."
         )
         if has_structure:
-            cached_model = restore_occupancy_preview_model(dataset.processed_data, dataset.metadata)
-            if cached_model is not None:
-                self._occupancy_preview_models[dataset.dataset_id] = cached_model
+            if dataset.dataset_id not in self._occupancy_preview_models:
+                cached_model = restore_occupancy_preview_model(dataset.processed_data, dataset.metadata)
+                if cached_model is not None:
+                    self._occupancy_preview_models[dataset.dataset_id] = cached_model
             self._lattice_loading = True
             source_path = Path(dataset.source_filename)
             original_text = (
@@ -1185,8 +1352,7 @@ class XrdWidget(QWidget):
                     original_text,
                     str(dataset.metadata.get("edited_cif", original_text)),
                 )
-                cell, sites, _warnings = extract_cif_tables(document)
-                self._selected_symmetry = extract_cif_symmetry(document)
+                cell, sites, _warnings, self._selected_symmetry = cif_editor_tables(document)
                 cell = constrain_unit_cell(cell, self._selected_symmetry)
                 self.lattice_symmetry.setText(
                     f"{self._selected_symmetry.name} (No. "
@@ -1215,6 +1381,7 @@ class XrdWidget(QWidget):
                 self._sync_lattice_profile_slider("relative_scale")
                 self._sync_lattice_profile_slider("fwhm_deg")
                 self._load_occupancy_sites(dataset, sites)
+                self._load_cif_profile(dataset)
                 self._set_lattice_editability()
             except Exception as exc:
                 LOGGER.warning("Could not load lattice parameters: %s", exc)
@@ -1418,30 +1585,23 @@ class XrdWidget(QWidget):
         if len(positions) == 0 or len(positions) != len(intensities):
             return
         d_spacing_values = np.asarray(dataset.metadata.get("stick_d_spacing_a", []), dtype=float)
-        sticks = SimulatedPattern(
+        sticks = self._live_cif_previews.get(dataset.dataset_id) or SimulatedPattern(
             positions,
             intensities,
             hkl_labels=list(dataset.metadata.get("stick_hkl_labels", [])),
             d_spacing_a=(d_spacing_values if len(d_spacing_values) == len(positions) else None),
         )
-        stored_range = dataset.metadata.get("two_theta_range", (1.0, 90.0))
-        two_theta_range = (float(stored_range[0]), float(stored_range[1]))
-        if dataset.metadata.get("fwhm_deg", .15) is None:
-            px, py = display_pattern_data(sticks, dataset.metadata.get("radiation", "Custom"))
-            dataset.processed_data["x"], dataset.processed_data["intensity"] = px, py
-            self._refresh_live_plot_data()
-            return
-        profile = broaden_pattern(
-            sticks,
-            two_theta_range=two_theta_range,
-            fwhm_deg=float(dataset.metadata.get("fwhm_deg", 0.15)),
-            profile_step_deg=float(dataset.metadata.get("profile_step_deg", 0.01)),
-            radiation=str(dataset.metadata.get("radiation", "Custom")),
-        )
-        assert profile.profile_x is not None and profile.profile_y is not None
-        dataset.processed_data["x"] = profile.profile_x
-        dataset.processed_data["intensity"] = profile.profile_y
+        self._write_cif_profile(dataset, sticks)
         self._refresh_live_plot_data()
+
+    def _profile_cell(self) -> tuple[float, ...]:
+        return tuple(self.lattice_fields[name].value() for name in ("a", "b", "c", "alpha", "beta", "gamma"))
+
+    def _write_cif_profile(self, dataset: Dataset, sticks: SimulatedPattern) -> None:
+        pattern = apply_cif_profile(sticks, dataset.metadata, cell=self._profile_cell())
+        px, py = display_pattern_data(pattern, dataset.metadata.get("radiation", "Custom"))
+        dataset.processed_data["x"] = px
+        dataset.processed_data["intensity"] = py
 
     def _occupancy_mapping(self) -> dict[str, float]:
         return {
@@ -1482,26 +1642,10 @@ class XrdWidget(QWidget):
             current.occupancy_model = model
         try:
             preview = preview_pattern_for_occupancies(current, self._occupancy_mapping())
-            stored_range = dataset.metadata.get("two_theta_range", (1.0, 90.0))
-            two_theta_range = (float(stored_range[0]), float(stored_range[1]))
-            fwhm = dataset.metadata.get("fwhm_deg", 0.15)
-            pattern = (
-                preview
-                if fwhm is None
-                else broaden_pattern(
-                    preview,
-                    two_theta_range=two_theta_range,
-                    fwhm_deg=float(fwhm),
-                    profile_step_deg=float(dataset.metadata.get("profile_step_deg", 0.01)),
-                    radiation=str(dataset.metadata.get("radiation", "Custom")),
-                )
-            )
+            self._write_cif_profile(dataset, preview)
         except Exception as exc:
             LOGGER.debug("Live CIF occupancy preview was skipped: %s", exc)
             return False
-        px, py = display_pattern_data(pattern, dataset.metadata.get("radiation", "Custom"))
-        dataset.processed_data["x"] = px
-        dataset.processed_data["intensity"] = py
         self._live_cif_previews[dataset.dataset_id] = preview
         self._refresh_live_plot_data()
         return True
@@ -1551,26 +1695,12 @@ class XrdWidget(QWidget):
                 wavelength_a=float(dataset.metadata.get("wavelength_a", 1.540598)),
                 two_theta_range=two_theta_range,
             )
-            fwhm = dataset.metadata.get("fwhm_deg", 0.15)
-            pattern = (
-                preview
-                if fwhm is None
-                else broaden_pattern(
-                    preview,
-                    two_theta_range=two_theta_range,
-                    fwhm_deg=float(fwhm),
-                    profile_step_deg=float(dataset.metadata.get("profile_step_deg", 0.01)),
-                    radiation=str(dataset.metadata.get("radiation", "Custom")),
-                )
-            )
+            self._write_cif_profile(dataset, preview)
         except Exception as exc:
             # The exact background calculation remains authoritative. A preview
             # failure must not interrupt slider interaction or show a dialog.
             LOGGER.debug("Live CIF geometry preview was skipped: %s", exc)
             return
-        x_values, y_values = display_pattern_data(pattern, dataset.metadata.get("radiation", "Custom"))
-        dataset.processed_data["x"] = np.asarray(x_values, dtype=float)
-        dataset.processed_data["intensity"] = np.asarray(y_values, dtype=float)
         self._live_cif_previews[dataset.dataset_id] = preview
         self._refresh_live_plot_data()
 

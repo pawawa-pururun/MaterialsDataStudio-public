@@ -5,12 +5,15 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
+from PySide6.QtCore import QPointF
 from PySide6.QtGui import QImage, QPainter
+from PySide6.QtWidgets import QMenu
 
 from materials_data_studio.core.models import PlotStyle
 from materials_data_studio.plotting.interactive_options import average_curves
 from materials_data_studio.plotting.plot_spec import CurveSpec, PlotSpec
 from materials_data_studio.plotting.pyqtgraph_backend import (
+    add_interactive_plot_actions,
     apply_plot_theme,
     create_plot_widget,
     render_plot,
@@ -31,6 +34,32 @@ def widget(qtbot):
 def curves():
     x = np.linspace(0, 10, 2000)
     return [CurveSpec(x, np.sin(x), "A"), CurveSpec(x, np.cos(x), "B")]
+
+
+def test_view_actions_share_plot_menu_and_cursor_reads_visible_samples(widget, qtbot):
+    spec = PlotSpec("x", "y", curves(), y_log_scale=True)
+    render_plot(widget, spec)
+    qtbot.wait(30)
+    cursor = widget._materials_cursor
+    assert not cursor.action.isChecked() and cursor.proxy is None
+    menu = QMenu(widget)
+    add_interactive_plot_actions(menu, widget)
+    plot = widget.getPlotItem()
+    assert plot.getMenu().menuAction() in menu.actions()
+    assert cursor.action in plot.getMenu().actions()
+    assert plot.getViewBox().menu.viewAll in menu.actions()
+    assert widget.scene().contextMenu[0] in menu.actions()
+    cursor.action.trigger()
+    position = plot.getViewBox().mapViewToScene(QPointF(1, -0.1))
+    cursor._mouse_moved((position,))
+    assert cursor.lines[0].isVisible()
+    assert "x = 1" in cursor.readout.text() and "A: y = 0.84" in cursor.readout.text()
+    plot.getViewBox().disableAutoRange()
+    cursor.action.trigger()
+    assert cursor.proxy is None and cursor.readout.isHidden()
+    assert all(not line.isVisible() for line in cursor.lines)
+    plot.getViewBox().menu.viewAll.trigger()
+    assert plot.getViewBox().autoRangeEnabled() == [True, True]
 
 
 def test_grid_draws_across_plot_and_survives_updates(widget, qtbot):

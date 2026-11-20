@@ -112,7 +112,7 @@ def settings_tabs(root: QWidget, key: str = "workspace", sample_scope: str = "Se
             else "Style"
             if "style" in title or "appearance" in title
             else "Analysis"
-            if any(
+            if title in {"particle size & strain", "preferred orientation"} or any(
                 word in title
                 for word in ("fit", "curie", "background", "lattice", "entropy", "calculation")
             )
@@ -150,7 +150,10 @@ def settings_tabs(root: QWidget, key: str = "workspace", sample_scope: str = "Se
         elif isinstance(card_layout, QVBoxLayout):
             card_layout.insertWidget(0, badge)
         CardCollapse(card)
-        searches[category].textChanged.connect(lambda text, target=card: target.setVisible(text.casefold() in (target.title() + " " + " ".join(label.text() for label in target.findChildren(QLabel))).casefold()))
+        searches[category].textChanged.connect(lambda text, target=card: target.setVisible(
+            target.property("settingsAvailable") is not False
+            and text.casefold() in (target.title() + " " + " ".join(label.text() for label in target.findChildren(QLabel))).casefold()
+        ))
     for layout in layouts.values():
         layout.addStretch(1)
     for index, layout in enumerate(layouts.values()):

@@ -375,8 +375,8 @@ class XrdPeakFittingWindow(QMainWindow):
             "Le Bail cycle progress and parameter changes appear here."
         )
 
-        self.main_plot = create_plot_widget()
-        self.residual_plot = create_plot_widget()
+        self.main_plot = create_plot_widget(cursor=False)
+        self.residual_plot = create_plot_widget(cursor=False)
         self.residual_plot.setMaximumHeight(280)
         self.residual_plot.setXLink(self.main_plot)
         self.reflection_hover = pg.TextItem(anchor=(0.5, 1.15))

@@ -3,6 +3,8 @@ import numpy as np
 
 CU_ALPHA1 = 1.540598
 CU_ALPHA2 = 1.544426
+# NIST measured unresolved Cu KM2,3 (Kβ1,3) wavelength.
+CU_BETA = 1.392234
 DOUBLET = "Cu Kα1/2"
 
 

@@ -12,7 +12,7 @@ import pyqtgraph as pg
 from pyqtgraph.graphicsItems.ViewBox.ViewBox import ViewBox
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QPen
-from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QMenu, QMessageBox
 
 from materials_data_studio.core.array_revision import ArrayRevisionCache
 from materials_data_studio.plotting.appearance import active_plot_appearance
@@ -149,7 +149,7 @@ class RightDragZoomViewBox(ViewBox):
         super().mouseDragEvent(event, axis=axis)
 
 
-def create_plot_widget() -> pg.PlotWidget:
+def create_plot_widget(*, cursor: bool = True) -> pg.PlotWidget:
     """Create a plot with the application's three-button mouse behavior."""
     plot_item = ScientificPlotItem(
         viewBox=RightDragZoomViewBox(),
@@ -178,9 +178,39 @@ def create_plot_widget() -> pg.PlotWidget:
         export_action.setObjectName("materialsInteractiveExport")
         export_action.triggered.disconnect()
         export_action.triggered.connect(lambda _checked=False: export_interactive_plot(widget))
+    if cursor:
+        from materials_data_studio.plotting.interactive_cursor import PlotCursor
+
+        cursor_action = QAction("Plot Cursor", widget)
+        cursor_action.setCheckable(True)
+        options = plot_item.getMenu()
+        assert options is not None
+        options.addAction(cursor_action)
+        cast(Any, widget)._materials_cursor = PlotCursor(widget, cursor_action)
     from materials_data_studio.ui.theme import current_theme
     apply_plot_theme(widget, current_theme())
     return widget
+
+
+def add_interactive_plot_actions(menu: QMenu, widget: pg.PlotWidget) -> None:
+    """Share the active plot's live actions with the main View menu."""
+    plot = widget.getPlotItem()
+    if plot is None:
+        return
+    view_menu = plot.getViewBox().getMenu(None)
+    options = plot.getMenu()
+    scene_actions = getattr(widget.scene(), "contextMenu", ())
+    parent_actions = [*([options.menuAction()] if options else []), *scene_actions]
+    menu.addSeparator()
+    if view_menu is not None:
+        native = cast(Any, view_menu)
+        if not native.valid:
+            native.updateState()
+        for action in view_menu.actions():
+            if action.isSeparator() or action in parent_actions:
+                continue
+            menu.addAction(action)
+    menu.addActions(parent_actions)
 
 
 def export_interactive_plot(widget: pg.PlotWidget, *, default_kind: str = "data") -> Path | None:
