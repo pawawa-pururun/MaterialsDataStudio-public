@@ -197,6 +197,15 @@ right-drag zooms to a rectangular region. Right-click and choose `View All` to
 auto-scale both axes. `Plot Options > Legends` toggles the legend. Top and right
 spines and inward ticks are visible by default.
 
+The main **View** menu also shows the active Interactive Plot's options,
+including axis range, mouse mode, and export. Under **Plot Options**, enable
+**Plot Cursor** to show a vertical line. The X position appears beside its
+upper end, and each curve intersection shows a marker with its Y value.
+The cursor starts off. In XRD, its readout shows 2θ and d using the selected
+wavelength. On a 2θ axis, enable **Cu Kα2 and Kβ Guides** immediately below
+**Plot Cursor** to treat the cursor as Cu Kα1 and show the two associated
+angles as separate guides. TOF requires calibration to show d and 2θ.
+
 Use **Grid** in the plot's right-click menu to show X and Y grid lines independently.
 The choice is retained when refreshing the plot or changing its theme.
 
@@ -321,7 +330,8 @@ Jana CIFs containing a global information block and one structure block can be o
 Lattice sliders update peak positions immediately from the current reciprocal
 metric. After 90 ms without movement, or when the slider is released, one exact
 pymatgen calculation replaces the preview. Obsolete background results are
-discarded. `Relative scale` and `FWHM` share the live controls. The default
+discarded. `Relative scale` and `FWHM` share the live controls. The step buttons move
+lengths by 0.01 Å, angles by 0.1°, and relative scale by 0.1. The default
 minimum 2θ is 1 degree. Numeric boxes permit ordinary caret insertion and apply
 after Enter or focus change.
 
@@ -329,13 +339,22 @@ after Enter or focus change.
 site-resolved structure-factor cache updates intensities immediately; exact
 calculation confirms the result after movement stops. The cache and edited CIF
 state are retained in the session. Hovering a simulated peak shows hkl and d.
+Valid partial occupancies are accepted without a confirmation dialog.
 
 The simulation uses the selected wavelength and symmetric Gaussian broadening.
 Its default is line only, without markers. Choose **Cu Kα1/2** in `Wavelength preset` to include
 the doublet in broadened CIF profiles; the wavelength field shows Kα1.
 The CIF Editor also provides **Simulation → Radiation**. Initial simulation, CIF editing and
-Apply Wavelength to All retain the chosen radiation. Unbroadened displays also show both components. Instrument functions,
-preferred orientation, and microstrain are not modeled automatically.
+Apply Wavelength to All retain the chosen radiation. Unbroadened displays also show both components.
+
+For a selected simulated CIF, use **Analysis > Particle size & strain** to add
+Gaussian broadening. Enter coherent crystallite size in nm and isotropic strain
+in percent. A zero value disables that contribution. Use
+**Analysis > Preferred orientation** to change relative reflection intensities.
+Enable the checkbox, choose plates or needles, enter the (h k l) orientation
+plane, and adjust Alignment. A value of 1 gives random orientation, and lower
+values give stronger alignment. The plot updates as you commit each value.
+The settings are saved with the simulated phase in the session.
 
 ### 3.5 CIF-constrained peak fitting
 

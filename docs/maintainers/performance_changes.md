@@ -131,3 +131,61 @@ The Windows job UI flags govern access to clipboard data.
 エラー5で拒否される環境で旧判定が失敗しました。テストはworkerの全UI制限と読取の拒否を
 確認し、APIの成否・エラーコードを記録する形に修正しました。Windowsの制限とAPIの役割は
 上記の公式資料で確認できます。
+
+## v0.15.5 development / v0.15.5向け
+
+Gemmi exposes `loop.values` as a newly materialized Python list on each access.
+Reading it once removes quadratic work from both CIF table extraction and
+serialization. File and structure-table reading runs off the GUI thread.
+The Atom Sites table fills on first opening, and CIF profile controls are built
+on first selection of a simulated structure. Profile changes reuse the
+calculated reflections and replace the existing plot arrays. The plot cursor
+connects to mouse movement only when enabled.
+
+Windows x64 source measurements in five paired runs with Python 3.12.14,
+Qt offscreen and an uncontrolled OS cache, against v0.15.4. The CIF has 2,500
+synthetic sites. The plot has 100,000 observed points and 200 calculated peaks
+with the Cu doublet.
+
+| Measurement / 測定 | v0.15.4 | Development / 開発版 |
+| --- | ---: | ---: |
+| CIF file read through editor construction / CIF読込からエディター生成 | 412 ms | 48 ms |
+| Apply CIF tables / CIF表を適用 | 371 ms | 7 ms |
+| XRD plot refresh / XRDグラフ更新 | 6.5 ms | 7.0 ms |
+| Three profile changes and Qt events / 3項目の更新と描画イベント | | 18.7 ms |
+| Cu cursor readout and Qt events / Cuカーソルと描画イベント | | 9.9 ms |
+
+The application now initializes the palette and stylesheet once before creating
+its windows. Initial View-menu setup leaves deferred module tabs unloaded.
+The startup probe also initializes the theme before constructing the window.
+Three fresh-process source runs with the light theme gave these medians. The
+MDSS and MDSG rows measure document readiness in the main-window probe.
+
+| Startup / 起動 | v0.15.4 | Development / 開発版 |
+| --- | ---: | ---: |
+| Blank main window / 空のメイン画面 | 2.070 s | 1.610 s |
+| MDSS open / MDSS読込 | 2.221 s | 1.737 s |
+| MDSG open from main window / メイン画面からMDSG読込 | 3.494 s | 2.283 s |
+
+Size and strain widths use Scherrer and isotropic strain terms combined in
+quadrature with the base Gaussian width. Broadening preserves relative
+integrated intensities before display normalization. The display correction
+uses March–Dollase with symmetry-equivalent planes. When a stored peak merges
+distinct families, their individual intensities are unavailable and the
+display uses an average over their equivalent reflections.
+The Kβ guide uses the measured combined Cu KM2,3 wavelength.
+[Williamson and Hall](https://doi.org/10.1016/0001-6160(53)90006-6),
+[Dollase](https://doi.org/10.1107/S0021889886089458),
+[NIST X-ray transition wavelengths](https://physics.nist.gov/cgi-bin/XrayTrans/search.pl?element=Cu&lower=&trans=KM3&units=A&upper=).
+
+CIFサイト表の抽出・保存では、Gemmiから行ごとに表全体を取得していた処理を1回の取得に
+まとめました。CIFの読み込みと構造表の抽出はバックグラウンドで行い、原子サイトの表示は
+タブを開いた時点で準備します。粒径・歪み・選択配向の変更は既存の反射を使って描画データを
+更新します。カーソルのマウス移動処理は有効化時だけ接続します。
+
+操作の比較はWindows x64・Python 3.12.14で、v0.15.4と開発版を交互に5回計測した中央値です。
+合成CIFは2,500サイト、グラフは測定100,000点と計算200反射のCu二重線で、OSキャッシュは
+制御していません。起動時の配色・スタイルシートを一度に設定し、Viewメニューは使用時に
+対象モジュールの表示操作を取り込みます。起動の比較はライトテーマで各3回の中央値です。
+選択配向には等価反射を含むMarch–Dollase補正を適用します。
+異なる反射族が同じピークに合算されている場合は、等価反射で平均して表示します。

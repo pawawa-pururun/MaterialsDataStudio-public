@@ -20,6 +20,13 @@ from PySide6.QtWidgets import (
 from materials_data_studio.core.settings import create_settings
 
 JA = {
+    "Plot Cursor": "グラフカーソル", "Cu Kα2 and Kβ Guides": "Cu Kα2・Kβのガイド線",
+    "Read CIF structure": "CIF構造を読み込む",
+    "The structure includes sites with partial occupancy.": "この構造には部分占有のサイトが含まれます。",
+    "Particle size & strain": "粒径・歪み", "Particle size (nm)": "粒径 (nm)", "Iso strain (%)": "等方歪み (%)",
+    "Preferred orientation": "選択配向", "Enable preferred orientation": "選択配向を有効にする",
+    "Particle geometry": "粒子形状", "Plates": "板状", "Needles": "針状", "Orientation (h k l)": "配向 (h k l)", "Alignment": "配向の強さ",
+    "1 = random orientation; lower values increase alignment.": "1はランダム配向。値を小さくすると配向が強くなります。",
     "File": "ファイル", "Tools": "ツール", "Help": "ヘルプ", "Edit": "編集", "Data": "データ", "Graph": "グラフ", "Table": "表", "View": "表示",
     "New Session": "新規セッション", "Open Session": "セッションを開く", "Save Session": "セッションを保存", "Save Session As": "名前を付けてセッションを保存",
     "Import Data": "データを読み込む", "Export Data": "データを出力", "Export Figure": "図を出力", "Send to Igor Pro": "Igor Proへ転送", "Prepare data waves": "データWaveを準備", "Undo": "元に戻す", "Redo": "やり直す",

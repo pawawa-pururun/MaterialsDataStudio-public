@@ -40,8 +40,11 @@ def child(mode: str, root: Path) -> dict:
 
     from materials_data_studio.core.startup_metrics import snapshot
     from materials_data_studio.ui.main_window import MainWindow
+    from materials_data_studio.ui.theme import apply_application_theme
+
     app = QApplication([])
     app.setStyle("Fusion")
+    apply_application_theme(app, "light")
     window = MainWindow(defer_initial_module=mode != "empty")
     window.show()
     app.processEvents()

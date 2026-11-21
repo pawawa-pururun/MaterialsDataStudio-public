@@ -342,7 +342,7 @@ class MainWindow(QMainWindow):
 
         self.view_menu = menu_bar.addMenu("View")
         self.view_menu.aboutToShow.connect(self.refresh_view_menu)
-        self.refresh_view_menu()
+        self.refresh_view_menu(include_plot=False)
         self.help_menu = menu_bar.addMenu("Help")
         from materials_data_studio.ui.updates import add_update_actions
         add_update_actions(self.help_menu, self)
@@ -359,13 +359,24 @@ class MainWindow(QMainWindow):
         self.help_menu.addAction(self._action("Context help", self.context_help, "Shift+F1"))
         self.help_menu.addAction(self._action("Recovery Center…", self.show_recovery_center))
 
-    def refresh_view_menu(self) -> None:
+    def refresh_view_menu(self, *, include_plot: bool = True) -> None:
         from materials_data_studio.ui.workspace_layout import WorkspaceSplitter, populate_view_menu
-        widget = self.active_widget()
+        widget = self.active_widget() if include_plot else self.module_tabs.currentWidget()
         workspace = getattr(widget, "active_workspace", widget)
         splitter = getattr(workspace, "splitter", None)
         if isinstance(splitter, WorkspaceSplitter):
             populate_view_menu(self.view_menu, splitter)
+        else:
+            self.view_menu.clear()
+        if not include_plot:
+            return
+        import pyqtgraph as pg
+
+        from materials_data_studio.plotting.pyqtgraph_backend import add_interactive_plot_actions
+
+        _widget, _workspace, plot = self._active_interactive_plot()
+        if isinstance(plot, pg.PlotWidget):
+            add_interactive_plot_actions(self.view_menu, plot)
 
     def _build_toolbar(self) -> None:
         """Expose frequent operations as small icon-only shortcuts."""

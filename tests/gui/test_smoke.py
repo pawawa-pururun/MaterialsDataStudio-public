@@ -97,6 +97,28 @@ def test_main_window_has_registered_tabs(qtbot) -> None:  # type: ignore[no-unty
     assert not window.module_tabs.tabBar().expanding()
 
 
+def test_view_menu_tracks_active_interactive_plot(qtbot):  # type: ignore[no-untyped-def]
+    import pyqtgraph as pg
+
+    from materials_data_studio.ui.main_window import MainWindow
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _, _, xrd = window._active_interactive_plot()
+    assert isinstance(xrd, pg.PlotWidget)
+    window.refresh_view_menu()
+    xrd_options = xrd.getPlotItem().getMenu().menuAction()
+    assert xrd_options in window.view_menu.actions()
+    window.module_tabs.setCurrentIndex(1)
+    _, _, mpms = window._active_interactive_plot()
+    window.refresh_view_menu()
+    assert xrd_options not in window.view_menu.actions()
+    assert mpms.getPlotItem().getMenu().menuAction() in window.view_menu.actions()
+    assert not mpms._materials_cursor.action.isChecked()
+    window.state.modified = False
+    window.undo_history.reset(clean=True)
+
+
 def test_fresh_main_window_remains_clean_and_closes(
     qtbot, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # type: ignore[no-untyped-def]
