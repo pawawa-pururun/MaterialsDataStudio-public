@@ -84,6 +84,9 @@ def test_xrd_profile_controls_update_in_place_and_cursor_guides(qtbot, monkeypat
     widget.orientation_enabled.setChecked(False)
     np.testing.assert_allclose(dataset.processed_data["intensity"], baseline)
     header, lines = widget._cursor_readout(40., True)
+    cursor = widget.plot_widget._materials_cursor
+    actions = widget.plot_widget.getPlotItem().getMenu().actions()
+    assert actions[actions.index(cursor.action) + 1] is cursor.radiation_action
     assert "2θ = 40°" in header and "d = 2.25" in header
     assert lines[0][0] == "Cu Kα2" and lines[0][1] > 40
     assert lines[1][0] == "Cu Kβ" and lines[1][1] < 40

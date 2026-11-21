@@ -195,7 +195,12 @@ class XrdWidget(QWidget):
         assert plot_item is not None
         menu = plot_item.getMenu()
         assert menu is not None
-        menu.addAction(radiation_guides)
+        actions = menu.actions()
+        following = actions.index(cursor.action) + 1
+        if following < len(actions):
+            menu.insertAction(actions[following], radiation_guides)
+        else:
+            menu.addAction(radiation_guides)
         self.legend_context_action = install_legend_toggle(
             self.plot_widget,
             self.legend_enabled.setChecked,

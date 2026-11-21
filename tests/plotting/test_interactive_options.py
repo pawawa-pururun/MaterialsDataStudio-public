@@ -50,16 +50,44 @@ def test_view_actions_share_plot_menu_and_cursor_reads_visible_samples(widget, q
     assert plot.getViewBox().menu.viewAll in menu.actions()
     assert widget.scene().contextMenu[0] in menu.actions()
     cursor.action.trigger()
-    position = plot.getViewBox().mapViewToScene(QPointF(1, -0.1))
+    view = plot.getViewBox()
+    position = view.mapViewToScene(QPointF(1, -0.1))
     cursor._mouse_moved((position,))
     assert cursor.lines[0].isVisible()
-    assert "x = 1" in cursor.readout.text() and "A: y = 0.84" in cursor.readout.text()
+    assert cursor.readout.text() == "x = 1"
+    assert cursor.readout.x() > widget.mapFromScene(position).x()
+    assert cursor.markers.isVisible()
+    x, y = cursor.markers.getData()
+    np.testing.assert_allclose(x, [1., 1.])
+    np.testing.assert_allclose(10**y, sorted([np.cos(1), np.sin(1)]), rtol=1e-5)
+    for label, value in zip(cursor.value_labels, y, strict=True):
+        point = widget.mapFromScene(view.mapViewToScene(QPointF(1, value)))
+        assert float(label.text()) == pytest.approx(10**value)
+        assert label.x() > point.x()
+        assert abs(label.geometry().center().y() - point.y()) <= 1
     plot.getViewBox().disableAutoRange()
     cursor.action.trigger()
     assert cursor.proxy is None and cursor.readout.isHidden()
+    assert not cursor.markers.isVisible() and all(label.isHidden() for label in cursor.value_labels)
     assert all(not line.isVisible() for line in cursor.lines)
     plot.getViewBox().menu.viewAll.trigger()
     assert plot.getViewBox().autoRangeEnabled() == [True, True]
+
+
+def test_cursor_intersections_include_loops_and_preserve_line_gaps(widget):
+    curves = [
+        CurveSpec(np.array([0., 4., 0.]), np.array([0., 4., 8.]), "Loop"),
+        CurveSpec(np.array([4., 3., 2., 1., 0.]), np.array([4., 3., np.nan, 1., 0.]), "Gap"),
+        CurveSpec(np.array([2.]), np.array([9.]), "Sample", PlotStyle(line_style="none", marker="o")),
+    ]
+    render_plot(widget, PlotSpec("x", "y", curves))
+    cursor = widget._materials_cursor
+    loop, gap, sample = widget.getPlotItem().listDataItems()
+    assert cursor._intersection_y(loop, 2., 4., .02) == [2., 6.]
+    assert cursor._intersection_y(gap, 3.5, 4., .02) == [3.5]
+    assert cursor._intersection_y(gap, 2., 4., .02) == []
+    assert cursor._intersection_y(sample, 2., 8., .02) == [9.]
+    assert cursor._intersection_y(sample, 2.1, 8., .02) == []
 
 
 def test_grid_draws_across_plot_and_survives_updates(widget, qtbot):

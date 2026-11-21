@@ -199,10 +199,11 @@ spines and inward ticks are visible by default.
 
 The main **View** menu also shows the active Interactive Plot's options,
 including axis range, mouse mode, and export. Under **Plot Options**, enable
-**Plot Cursor** to show a vertical line, its X position, and the Y value of the
-nearest displayed sample for each curve. The cursor starts off. In XRD, its
-readout shows 2θ and d using the selected wavelength. On a 2θ axis, enable
-**Cu Kα2 and Kβ Guides** to treat the cursor as Cu Kα1 and show the two associated
+**Plot Cursor** to show a vertical line. The X position appears beside its
+upper end, and each curve intersection shows a marker with its Y value.
+The cursor starts off. In XRD, its readout shows 2θ and d using the selected
+wavelength. On a 2θ axis, enable **Cu Kα2 and Kβ Guides** immediately below
+**Plot Cursor** to treat the cursor as Cu Kα1 and show the two associated
 angles as separate guides. TOF requires calibration to show d and 2θ.
 
 Use **Grid** in the plot's right-click menu to show X and Y grid lines independently.
