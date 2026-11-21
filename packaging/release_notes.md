@@ -10,12 +10,12 @@
 
 ### Changes in v{{VERSION}}
 
-- Duplicate graphs using Edit → Duplicate Graph or Ctrl+D. Duplicate, rename and delete from the graph-list context menu, with Undo/Redo.
-- Fix zero-size arc errors. Resize shapes using corner handles, with Shift snapping and stable drag previews.
-- Follow window resizing, restored graph sessions and display scaling while preserving visible axis ranges.
-- Improve interactive grids, persistent downsampling and mean previews over the common X range.
-- Speed up first opening of Graph Editor, Search–Match and Peak Fitting by deferring calculation libraries and consolidating previews.
-- Update English and Japanese application and Graph Editor manuals.
+- Access the active Interactive Plot controls from View or the plot's right-click menu.
+- Enable Plot Cursor to mark curve intersections and show their Y values. XRD also shows 2θ and d beside the cursor's upper end. Cu Kα2 and Kβ Guides sits directly below Plot Cursor.
+- Open CIFs faster. Valid partial occupancies are accepted without a confirmation dialog.
+- Adjust particle size, isotropic strain and optional preferred orientation in simulated CIF profiles. Lattice lengths, angles and relative scale step by 0.01 Å, 0.1° and 0.1.
+- Reduce startup time by applying the palette and style sheet together and deferring plot-menu setup.
+- Update the English and Japanese application manuals.
 
 **Session compatibility.** Sessions saved with v0.15.2 or newer require a version that supports this format. Keep original copies when working with versions before v0.15.2.
 
@@ -52,12 +52,12 @@ MDS application code is MIT; dependencies and data retain their own licenses. MD
 
 ### v{{VERSION}}の変更点
 
-- Edit → Duplicate Graph・Ctrl+Dでグラフを複製。グラフ一覧の右クリックから複製・リネーム・削除でき、元に戻す操作にも対応しました。
-- 大きさがゼロの円弧でのエラーを修正。四隅のハンドルによる図形サイズ変更とShiftスナップに対応しました。
-- 保存グラフの読込・ウインドウサイズ変更・画面倍率変更後に、表示中の軸範囲を維持して表示を更新します。
-- グリッド表示・間引き設定の保持・共通X範囲での平均プレビューを改善しました。
-- 計算ライブラリの読み込みとプレビュー更新を整理し、Graph Editor・Search–Match・ピークフィッティングの初回表示を高速化しました。
-- アプリ・Graph Editorの日本語・英語マニュアルを更新しました。
+- アクティブなInteractive Plotの表示操作をViewとグラフの右クリックメニューから利用できます。
+- 縦カーソルと曲線の交点にマーカーとY値を表示します。XRDでは2θとd値をカーソル上端の横に表示し、Cu Kα2・Kβのガイド線はPlot Cursorの直下で切り替えられます。
+- CIFの読み込みを高速化し、有効な部分占有率の確認ダイアログを廃止しました。
+- CIFシミュレーションで粒径・等方歪み・選択配向を調整できます。格子長・角度・相対倍率の刻みはそれぞれ0.01 Å、0.1°、0.1です。
+- 起動時に外観設定をまとめて適用し、グラフメニューを使用時に準備することで起動を高速化しました。
+- 日本語・英語のアプリマニュアルを更新しました。
 
 **セッションの互換性。** v0.15.2以降で保存したセッションは、この形式に対応する版で開いてください。v0.15.2より前の版を併用する場合は、元ファイルを保管してください。
 
