@@ -279,7 +279,11 @@ class CifEditorDialog(QDialog):
 
     def _space_group_changed(self) -> None:
         try:
-            self.symmetry = resolve_space_group(self.space_group_name.text())
+            self.symmetry = resolve_space_group(
+                self.space_group_name.text(),
+                alpha=self._cell_fields["alpha"].value(),
+                gamma=self._cell_fields["gamma"].value(),
+            )
         except Exception as exc:
             QMessageBox.critical(self, "Space-Group Error", str(exc))
             self.space_group_name.setText(self.symmetry.name)
@@ -302,16 +306,7 @@ class CifEditorDialog(QDialog):
         self._updating_cell = True
         for name, field in self._cell_fields.items():
             field.setValue(float(getattr(cell, name)))
-        system = self.symmetry.crystal_system
-        editable = {
-            "cubic": {"a"},
-            "tetragonal": {"a", "c"},
-            "orthorhombic": {"a", "b", "c"},
-            "hexagonal": {"a", "c"},
-            "monoclinic": {"a", "b", "c", "beta"},
-        }.get(system, set(self._cell_fields))
-        if system == "trigonal":
-            editable = {"a", "c"} if ":H" in self.symmetry.name.upper() else {"a", "alpha"}
+        editable = self.symmetry.independent_parameters()
         for name, field in self._cell_fields.items():
             field.setEnabled(name in editable)
         self._updating_cell = False

@@ -64,6 +64,44 @@ def test_cif_load_revert_validate_and_save_as(tmp_path: Path) -> None:
     assert document.edited_text == NACL_CIF
 
 
+@pytest.mark.parametrize(
+    ("declaration", "angles", "expected_name", "expected_parameters"),
+    [
+        ("_symmetry_space_group_name_H-M 'R -3 m'", (63, 63, 63), "R -3 m:R", ("a", "alpha")),
+        ("_space_group_IT_number 166", (63, 63, 63), "R -3 m:R", ("a", "alpha")),
+        ("_space_group.IT_number 166\n_space_group.IT_coordinate_system_code r", (63, 63, 63), "R -3 m:R", ("a", "alpha")),
+        ("_space_group_name_H-M_alt 'R -3 m'", (90, 90, 120), "R -3 m:H", ("a", "c")),
+        ("_space_group_name_H-M_alt 'P -3 m 1'", (90, 90, 120), "P -3 m 1", ("a", "c")),
+    ],
+)
+def test_trigonal_cif_preserves_axes_across_editor_simulation_and_live_preview(
+    tmp_path, qtbot, declaration, angles, expected_name, expected_parameters,
+):
+    from materials_data_studio.modules.xrd.cif_editor import CifEditorDialog
+
+    text = NACL_CIF.replace("_symmetry_space_group_name_H-M 'F m -3 m'", declaration)
+    for name, angle in zip(("alpha", "beta", "gamma"), angles, strict=True):
+        text = text.replace(f"_cell_angle_{name} 90", f"_cell_angle_{name} {angle}")
+    if angles[2] == 120:
+        text = text.replace("_cell_length_c 5.6402", "_cell_length_c 11.2")
+    path = tmp_path / "synthetic.cif"
+    path.write_text(text, encoding="utf-8")
+    document = load_cif(path)
+    symmetry = extract_cif_symmetry(document)
+    assert symmetry.name == expected_name and symmetry.crystal_system == "trigonal"
+    assert symmetry.independent_parameters() == expected_parameters
+    editor = CifEditorDialog(document)
+    qtbot.addWidget(editor)
+    assert tuple(editor._cell_fields[name].value() for name in ("alpha", "beta", "gamma")) == angles
+    assert tuple(name for name, field in editor._cell_fields.items() if field.isEnabled()) == expected_parameters
+    editor._apply_tables()
+    cell, _sites, _warnings = extract_cif_tables(document)
+    assert (cell.alpha, cell.beta, cell.gamma) == angles
+    pattern = simulate_cif(document, wavelength_a=1.540598)
+    preview = preview_pattern_for_cell(pattern, cell=cell, wavelength_a=1.540598)
+    np.testing.assert_allclose(preview.two_theta_deg, pattern.two_theta_deg, atol=1e-4)
+
+
 def test_cif_validation_rejects_nonphysical_cell_and_overwrite(tmp_path: Path) -> None:
     source = tmp_path / "NaCl.cif"
     source.write_text(NACL_CIF)

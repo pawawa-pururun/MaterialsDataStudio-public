@@ -80,6 +80,7 @@ from materials_data_studio.modules.xrd.simulation import (
     restore_occupancy_preview_model,
     simulate_cif,
     store_occupancy_preview_model,
+    warm_cif_simulator,
 )
 from materials_data_studio.modules.xrd.transforms import (
     convert_x_axis,
@@ -158,6 +159,7 @@ class XrdWidget(QWidget):
         super().__init__(parent)
         self.state = state
         self._workers: set[Worker] = set()
+        self._cif_warmup_started = False
         self.current_spec = PlotSpec("2θ (deg)", "Intensity")
         self.dataset_list = XrdDatasetTree(state, ModuleType.XRD)
         self.plot_widget = create_plot_widget()
@@ -725,6 +727,12 @@ class XrdWidget(QWidget):
         except InterruptedError:
             return
         dialog = CifEditorDialog(document, self, tables=tables, simulation_settings={"radiation": self.wavelength_preset.currentText(), "wavelength_a": self.wavelength.value()})
+        if not self._cif_warmup_started:
+            self._cif_warmup_started = True
+            worker = Worker(warm_cif_simulator)
+            self._workers.add(worker)
+            worker.signals.finished.connect(lambda: self._workers.discard(worker))
+            QThreadPool.globalInstance().start(worker)
         if dialog.exec() != CifEditorDialog.DialogCode.Accepted:
             dialog.deleteLater()
             return
@@ -1404,15 +1412,7 @@ class XrdWidget(QWidget):
         symmetry = self._selected_symmetry
         if symmetry is None:
             return
-        editable = {
-            "cubic": {"a"},
-            "tetragonal": {"a", "c"},
-            "orthorhombic": {"a", "b", "c"},
-            "hexagonal": {"a", "c"},
-            "monoclinic": {"a", "b", "c", "beta"},
-        }.get(symmetry.crystal_system, set(self.lattice_fields))
-        if symmetry.crystal_system == "trigonal":
-            editable = {"a", "c"} if ":H" in symmetry.name.upper() else {"a", "alpha"}
+        editable = symmetry.independent_parameters()
         for name in self.lattice_fields:
             enabled = name in editable
             self.lattice_fields[name].setEnabled(enabled)

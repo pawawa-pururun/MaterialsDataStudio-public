@@ -74,6 +74,29 @@ def test_view_actions_share_plot_menu_and_cursor_reads_visible_samples(widget, q
     assert plot.getViewBox().autoRangeEnabled() == [True, True]
 
 
+def test_reverse_trace_order_shares_menu_and_survives_replacing_plot(widget):
+    spec = PlotSpec("x", "y", curves())
+    render_plot(widget, spec)
+    plot = widget.getPlotItem()
+    options = plot.getMenu()
+    view_menu = QMenu(widget)
+    add_interactive_plot_actions(view_menu, widget)
+    action = plot.reverse_order_action
+    assert action in options.actions()
+    assert options.menuAction() in view_menu.actions()
+    assert not action.isChecked()
+    original_range = plot.getViewBox().viewRange()
+    action.trigger()
+    assert [item.name() for item in plot.source_items] == ["A", "B"]
+    assert plot.source_items[0].zValue() > plot.source_items[1].zValue()
+    assert plot.getViewBox().viewRange() == original_range
+    render_plot(widget, replace(spec, curves=list(reversed(spec.curves))))
+    assert [item.name() for item in plot.source_items] == ["B", "A"]
+    assert plot.source_items[0].zValue() > plot.source_items[1].zValue()
+    action.trigger()
+    assert [item.zValue() for item in plot.source_items] == [0, 0]
+
+
 def test_cursor_intersections_include_loops_and_preserve_line_gaps(widget):
     curves = [
         CurveSpec(np.array([0., 4., 0.]), np.array([0., 4., 8.]), "Loop"),

@@ -21,6 +21,7 @@ from materials_data_studio.core.settings import create_settings
 
 JA = {
     "Plot Cursor": "グラフカーソル", "Cu Kα2 and Kβ Guides": "Cu Kα2・Kβのガイド線",
+    "Reverse Trace Order": "トレースの重ね順を反転",
     "Read CIF structure": "CIF構造を読み込む",
     "The structure includes sites with partial occupancy.": "この構造には部分占有のサイトが含まれます。",
     "Particle size & strain": "粒径・歪み", "Particle size (nm)": "粒径 (nm)", "Iso strain (%)": "等方歪み (%)",

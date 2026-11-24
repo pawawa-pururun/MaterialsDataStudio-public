@@ -185,6 +185,7 @@ def create_plot_widget(*, cursor: bool = True) -> pg.PlotWidget:
         cursor_action.setCheckable(True)
         options = plot_item.getMenu()
         assert options is not None
+        plot_item.install_trace_order_action(widget)
         options.addAction(cursor_action)
         cast(Any, widget)._materials_cursor = PlotCursor(widget, cursor_action)
     from materials_data_studio.ui.theme import current_theme
@@ -636,14 +637,15 @@ def update_rendered_plot_data(widget: pg.PlotWidget, spec: PlotSpec) -> bool:
     for index, (item, curve, old_curve) in enumerate(zip(items, spec.curves, previous.curves, strict=True)):
         if not isinstance(item, pg.PlotDataItem) or item not in plot_item.items:
             return False
-        scientific_same = curve.x is old_curve.x and curve.y is old_curve.y and not curve.x.flags.writeable and not curve.y.flags.writeable
-        if scientific_same and {k: v for k, v in styles[index].items() if k != "legend_text"} == {k: v for k, v in old_styles[index].items() if k != "legend_text"}:
-            name = curve.style.legend_text or curve.label
+        name = curve.style.legend_text or curve.label
+        if item.name() != name:
+            item.opts["name"] = name
             if plot_item.legend is not None:
                 for sample, legend_label in plot_item.legend.items:
                     if sample.item is item and legend_label.text != name:
                         legend_label.setText(name)
-            item.opts["name"] = name
+        scientific_same = curve.x is old_curve.x and curve.y is old_curve.y and not curve.x.flags.writeable and not curve.y.flags.writeable
+        if scientific_same and {k: v for k, v in styles[index].items() if k != "legend_text"} == {k: v for k, v in old_styles[index].items() if k != "legend_text"}:
             same_style = True
         else:
             same_style = styles[index] == old_styles[index]
@@ -658,7 +660,6 @@ def update_rendered_plot_data(widget: pg.PlotWidget, spec: PlotSpec) -> bool:
             item.setData(curve.x, curve.y)
         else:
             style = curve.style
-            name = style.legend_text or curve.label
             item.setData(curve.x, curve.y, name=name,
                          pen=None if style.line_style.lower() == "none" else pg.mkPen(style.color, width=style.line_width, style=_PEN_STYLES.get(style.line_style, Qt.PenStyle.SolidLine)),
                          symbol=qt_symbol(style.marker) if style.marker in {"dagger", "|"} else _SYMBOLS.get(style.marker),
@@ -666,11 +667,9 @@ def update_rendered_plot_data(widget: pg.PlotWidget, spec: PlotSpec) -> bool:
                          symbolPen=pg.mkPen(style.marker_edge_color or style.color, width=style.marker_edge_width),
                          symbolBrush=pg.mkBrush(style.marker_fill_color) if style.marker_fill_color else None)
             if plot_item.legend is not None:
-                for sample, legend_label in plot_item.legend.items:
+                for sample, _legend_label in plot_item.legend.items:
                     if sample.item is item:
                         sample.update()
-                        if legend_label.text != name:
-                            legend_label.setText(name)
         if not isinstance(plot_item, ScientificPlotItem):
             item.setClipToView(ascending)
             item.setDownsampling(auto=ascending, method="peak")

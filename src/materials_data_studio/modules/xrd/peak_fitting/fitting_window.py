@@ -71,7 +71,6 @@ from materials_data_studio.modules.xrd.peak_fitting.optimizer import (
 )
 from materials_data_studio.modules.xrd.peak_fitting.reflections import (
     group_reflections,
-    independent_lattice_parameters,
     reflections_from_metadata,
 )
 from materials_data_studio.modules.xrd.transforms import (
@@ -706,7 +705,7 @@ class XrdPeakFittingWindow(QMainWindow):
         cell, _sites, _warnings = extract_cif_tables(document)
         symmetry = extract_cif_symmetry(document)
         parameters = {}
-        for name in independent_lattice_parameters(symmetry.crystal_system):
+        for name in symmetry.independent_parameters():
             value = float(getattr(cell, name))
             if name in {"a", "b", "c"}:
                 lower, upper, unit = value * 0.9, value * 1.1, "Å"

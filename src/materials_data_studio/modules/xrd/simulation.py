@@ -17,13 +17,14 @@ from materials_data_studio.core.exceptions import AnalysisError, CifValidationEr
 from materials_data_studio.modules.xrd.cif_backend import (
     CifDocument,
     UnitCell,
+    complete_trigonal_operations,
     extract_cif_tables,
     read_cif_structure,
     validate_cif_text,
 )
 
 _HKL_PATTERN = re.compile(
-    r"\(\s*([+-]?\d+)\s+([+-]?\d+)\s+([+-]?\d+)\s*\)"
+    r"\(\s*([+-]?\d+)\s+([+-]?\d+)(?:\s+[+-]?\d+)?\s+([+-]?\d+)\s*\)"
 )
 LOGGER = logging.getLogger(__name__)
 _OCCUPANCY_MODEL_METADATA = "cif_occupancy_preview_model"
@@ -202,47 +203,46 @@ def _build_occupancy_preview_model(
         2.0 * math.sin(math.radians(value / 2.0)) / wavelength_a
         for value in two_theta_range
     ]
-    reciprocal_points = reciprocal.get_points_in_sphere(
-        [[0, 0, 0]], [0, 0, 0], max_r
-    )
-    rows: list[NDArray[np.complex128]] = []
-    peak_indices: list[int] = []
-    lorentz_factors: list[float] = []
     if not len(positions):
         return None
-    for hkl_values, g_hkl, _index, _image in reciprocal_points:
-        if not (g_hkl >= min_r and g_hkl > 0):
-            continue
-        hkl = np.asarray([round(value) for value in hkl_values], dtype=float)
-        theta = math.asin(wavelength_a * g_hkl / 2.0)
-        two_theta = math.degrees(2.0 * theta)
-        insertion = int(np.searchsorted(positions, two_theta))
-        nearest = min(
-            (max(0, insertion - 1), min(insertion, len(positions) - 1)),
-            key=lambda index: abs(float(positions[index]) - two_theta),
-        )
-        if abs(float(positions[nearest]) - two_theta) >= 1.0e-4:
-            continue
-        s2 = (g_hkl / 2.0) ** 2
-        scattering = zs - 41.78214 * s2 * np.sum(
-            coeffs[:, :, 0] * np.exp(-coeffs[:, :, 1] * s2), axis=1
-        )
-        phases = np.exp(2j * np.pi * (frac_coords @ hkl))
-        atomic_terms = scattering * unit_occus * phases
-        row = np.zeros(len(labels), dtype=np.complex128)
-        np.add.at(row, atom_label_indices, atomic_terms)
-        rows.append(row)
-        peak_indices.append(nearest)
-        lorentz_factors.append(
-            (1.0 + math.cos(2.0 * theta) ** 2)
-            / (math.sin(theta) ** 2 * math.cos(theta))
-        )
-    if not rows or len(set(peak_indices)) != len(positions):
+    hkl, reciprocal_lengths, _, _ = reciprocal.get_points_in_sphere(
+        [[0, 0, 0]], [0, 0, 0], max_r, zip_results=False
+    )
+    sine = wavelength_a * reciprocal_lengths / 2.0
+    valid = (reciprocal_lengths >= min_r) & (sine > 0) & (sine < 1)
+    theta = np.arcsin(sine[valid])
+    angles = np.rad2deg(2 * theta)
+    insertion = np.searchsorted(positions, angles)
+    right = np.minimum(insertion, len(positions) - 1)
+    left = np.maximum(0, insertion - 1)
+    peaks = np.where(abs(positions[left] - angles) <= abs(positions[right] - angles), left, right)
+    matched = np.abs(positions[peaks] - angles) < 1e-4
+    peak_indices = peaks[matched]
+    if len(np.unique(peak_indices)) != len(positions):
         return None
+    hkl = np.rint(hkl[valid][matched])
+    theta = theta[matched]
+    lorentz_factors = (1 + np.cos(2 * theta)**2) / (np.sin(theta)**2 * np.cos(theta))
+    s2_values = (reciprocal_lengths[valid][matched] / 2.0) ** 2
+    contributions = np.zeros((len(hkl), len(labels)), dtype=np.complex128)
+    # Limit temporary scattering and phase arrays for large structures.
+    batch_size = max(1, min(512, 131072 // len(zs)))
+    for start in range(0, len(hkl), batch_size):
+        stop = start + batch_size
+        s2 = s2_values[start:stop, None]
+        scattering = zs - 41.78214 * s2 * np.sum(
+            coeffs[:, :, 0] * np.exp(-coeffs[:, :, 1] * s2[:, :, None]), axis=-1
+        )
+        phases = np.exp(2j * np.pi * np.einsum("ij,kj->ik", hkl[start:stop], frac_coords))
+        np.add.at(
+            contributions[start:stop],
+            (np.arange(len(s2))[:, None], atom_label_indices),
+            scattering * unit_occus * phases,
+        )
     model = OccupancyPreviewModel(
         labels,
         np.asarray([baseline_occupancies[label] for label in labels], dtype=float),
-        np.asarray(rows, dtype=np.complex128),
+        contributions,
         np.asarray(peak_indices, dtype=np.int64),
         np.asarray(lorentz_factors, dtype=float),
         len(positions),
@@ -254,6 +254,7 @@ def _build_occupancy_preview_model(
     return model
 
 
+@lru_cache(maxsize=1)
 def _pymatgen_classes():  # type: ignore[no-untyped-def]
     """Import pymatgen only for structure conversion and simulation."""
     try:
@@ -266,6 +267,11 @@ def _pymatgen_classes():  # type: ignore[no-untyped-def]
     return Structure, XRDCalculator
 
 
+def warm_cif_simulator() -> None:
+    """Load the diffraction backend while the CIF editor is open."""
+    _pymatgen_classes()
+
+
 @lru_cache(maxsize=8)
 def _parsed_structure(text: str):
     from pymatgen.core import Structure
@@ -274,6 +280,7 @@ def _parsed_structure(text: str):
     except (RuntimeError, ValueError, TypeError) as exc:
         raise CifValidationError(f"The edited CIF is invalid: {exc}") from exc
     validate_cif_text(text, block=block)
+    complete_trigonal_operations(block)
     return Structure.from_str(block.as_string(), fmt="cif")
 
 
@@ -345,6 +352,14 @@ def simulate_cif(
     )
 
 
+def parse_hkl_label(label: str) -> tuple[tuple[int, int, int], ...]:
+    """Convert HKL or hexagonal HKIL families to three reciprocal indices."""
+    indices = tuple((int(h), int(k), int(last)) for h, k, last in _HKL_PATTERN.findall(label))
+    if not indices:
+        raise AnalysisError(f"Could not read reflection indices from '{label}'.")
+    return indices
+
+
 def preview_pattern_for_cell(
     pattern: SimulatedPattern,
     *,
@@ -361,14 +376,7 @@ def preview_pattern_for_cell(
     labels = pattern.hkl_labels or []
     if len(labels) != len(pattern.two_theta_deg):
         raise AnalysisError("Reflection indices are required for a live lattice preview.")
-    indices: list[tuple[int, int, int]] = []
-    for label in labels:
-        match = _HKL_PATTERN.search(label)
-        if match is None:
-            raise AnalysisError(f"Could not read reflection indices from '{label}'.")
-        indices.append(
-            (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-        )
+    indices = [parse_hkl_label(label)[0] for label in labels]
 
     alpha, beta, gamma = np.deg2rad((cell.alpha, cell.beta, cell.gamma))
     metric = np.asarray(
