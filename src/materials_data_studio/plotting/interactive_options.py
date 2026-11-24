@@ -7,6 +7,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.graphicsItems.PlotItem import PlotItem
 from PySide6.QtCore import QSignalBlocker
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QGridLayout, QLabel
 
 from materials_data_studio.plotting.plot_spec import CurveSpec
@@ -53,6 +54,8 @@ class ScientificPlotItem(PlotItem):
 
     def __init__(self, **kwargs: Any) -> None:
         self.source_curves: list[CurveSpec] = []
+        self.source_items: list[Any] = []
+        self.reverse_order_action: QAction | None = None
         self.average_item: Any = None
         self.average_revision: tuple[Any, ...] | None = None
         super().__init__(**kwargs)
@@ -65,6 +68,23 @@ class ScientificPlotItem(PlotItem):
         layout = self.ctrl.averageGroup.layout()
         assert isinstance(layout, QGridLayout)
         layout.addWidget(self.average_status, 0, 0)
+
+    def install_trace_order_action(self, parent: Any) -> None:
+        menu = self.getMenu()
+        assert menu is not None
+        action = QAction("Reverse Trace Order", parent)
+        action.setCheckable(True)
+        action.toggled.connect(self._apply_trace_order)
+        menu.addAction(action)
+        self.reverse_order_action = action
+
+    def _apply_trace_order(self, checked: bool) -> None:
+        for index, item in enumerate(self.source_items, 1):
+            # Keep traces below plot annotations and guides without changing
+            # dataset, legend or stacking-offset order.
+            z = -index / len(self.source_items) if checked else 0
+            if item.zValue() != z:
+                item.setZValue(z)
 
     def addItem(self, item: Any, *args: Any, **kwargs: Any) -> None:
         if not isinstance(item, pg.PlotDataItem):
@@ -141,6 +161,9 @@ class ScientificPlotItem(PlotItem):
 
     def set_source_curves(self, curves: list[CurveSpec], items: list[Any], auto_reduce: list[bool]) -> None:
         self.source_curves = curves
+        self.source_items = items
+        if self.reverse_order_action is not None and self.reverse_order_action.isChecked():
+            self._apply_trace_order(True)
         if self.average_item not in self.items:
             self.average_item = None
             self.average_revision = None

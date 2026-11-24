@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import re
-
 import numpy as np
 
 from materials_data_studio.core.exceptions import AnalysisError
-from materials_data_studio.modules.xrd.cif_backend import UnitCell
+from materials_data_studio.modules.xrd.cif_backend import UnitCell, independent_cell_parameters
 from materials_data_studio.modules.xrd.peak_fitting.models import (
     PeakReflection,
     ReflectionGroup,
 )
-
-_HKL_PATTERN = re.compile(r"\(\s*(-?\d+)\s+(-?\d+)\s+(-?\d+)\s*\)")
+from materials_data_studio.modules.xrd.simulation import parse_hkl_label as parse_hkl_label
 
 
 def d_spacing(hkl: tuple[int, int, int], cell: UnitCell) -> float:
@@ -61,17 +58,6 @@ def shifted_two_theta(
         + zero_shift_deg
         + displacement_coefficient_deg * np.cos(theta)
     )
-
-
-def parse_hkl_label(label: str) -> tuple[tuple[int, int, int], ...]:
-    """Extract all integer hkl triples retained in a simulation label."""
-    values = tuple(
-        (int(match[0]), int(match[1]), int(match[2]))
-        for match in _HKL_PATTERN.findall(label)
-    )
-    if not values:
-        raise AnalysisError(f"Could not read reflection indices from '{label}'.")
-    return values
 
 
 def reflections_from_metadata(
@@ -170,14 +156,7 @@ def group_reflections(
     return groups
 
 
-def independent_lattice_parameters(crystal_system: str) -> tuple[str, ...]:
+def independent_lattice_parameters(crystal_system: str, cell: UnitCell | None = None) -> tuple[str, ...]:
     """Return the safe independent metric parameters for a crystal system."""
-    return {
-        "cubic": ("a",),
-        "tetragonal": ("a", "c"),
-        "orthorhombic": ("a", "b", "c"),
-        "hexagonal": ("a", "c"),
-        "monoclinic": ("a", "b", "c", "beta"),
-        "trigonal": ("a", "c"),
-        "triclinic": ("a", "b", "c", "alpha", "beta", "gamma"),
-    }.get(crystal_system.lower(), ("a", "b", "c", "alpha", "beta", "gamma"))
+    rhombohedral = crystal_system.lower() == "trigonal" and cell is not None and abs(cell.gamma - 120) >= 1
+    return independent_cell_parameters(crystal_system, rhombohedral_axes=rhombohedral)

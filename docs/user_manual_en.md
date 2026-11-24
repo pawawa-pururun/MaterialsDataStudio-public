@@ -209,6 +209,10 @@ angles as separate guides. TOF requires calibration to show d and 2θ.
 Use **Grid** in the plot's right-click menu to show X and Y grid lines independently.
 The choice is retained when refreshing the plot or changing its theme.
 
+Enable **Reverse Trace Order** in **Plot Options** to bring the traces at the
+top of Datasets to the front of the Interactive Plot. Stacking offsets and
+legend entries keep their original order.
+
 **Downsample** reduces display points for smoother interaction with large datasets.
 Choose **Auto** or a manual factor, then **Peak** to retain extrema, **Mean** to average
 each block, or **Subsample** to take evenly spaced points. Marker series with individual
@@ -324,6 +328,9 @@ Uncertainty notation such as `2.38(4)` is accepted and the central value is used
 Cell values with a separated uncertainty, such as `2.38 (4)`, are also accepted.
 Chemical names containing Greek letters in database exports are accepted with their original text retained.
 Jana CIFs containing a global information block and one structure block can be opened directly. MDS uses that structure for editing, simulation and user-library registration, and retains the other blocks when saving edits. Files containing multiple structures require a CIF with the intended structure selected.
+
+Trigonal CIFs retain the axes used in the file. Hexagonal axes allow editing
+`a` and `c`. Rhombohedral axes allow editing the common length and angle.
 
 ![CIF simulation with live lattice, scale, FWHM, and occupancy controls](screenshots/05_xrd_cif_simulation.png)
 

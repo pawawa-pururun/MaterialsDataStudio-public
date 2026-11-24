@@ -79,6 +79,27 @@ class SpaceGroupInfo:
     number: int
     crystal_system: str
 
+    @property
+    def rhombohedral_axes(self) -> bool:
+        return self.crystal_system == "trigonal" and self.name.upper().endswith(":R")
+
+    def independent_parameters(self) -> tuple[str, ...]:
+        return independent_cell_parameters(self.crystal_system, rhombohedral_axes=self.rhombohedral_axes)
+
+
+def independent_cell_parameters(system: str, *, rhombohedral_axes: bool = False) -> tuple[str, ...]:
+    """Return the independent parameters in the selected cell setting."""
+    if rhombohedral_axes:
+        return ("a", "alpha")
+    return {
+        "cubic": ("a",),
+        "tetragonal": ("a", "c"),
+        "orthorhombic": ("a", "b", "c"),
+        "trigonal": ("a", "c"),
+        "hexagonal": ("a", "c"),
+        "monoclinic": ("a", "b", "c", "beta"),
+    }.get(system.lower(), ("a", "b", "c", "alpha", "beta", "gamma"))
+
 
 @dataclass(slots=True)
 class AtomSite:
@@ -156,13 +177,20 @@ def load_cif(path: Path) -> CifDocument:
     return CifDocument(path, text, text, source_bytes)
 
 
-def resolve_space_group(name: str = "", number: int = 0) -> SpaceGroupInfo:
+def resolve_space_group(
+    name: str = "", number: int = 0, *, alpha: float = 0.0, gamma: float = 0.0, setting: str = "",
+) -> SpaceGroupInfo:
     """Resolve an H-M symbol or International Tables number with Gemmi."""
     gemmi = _gemmi()
     cleaned_name = name.strip().strip("'\"")
-    group = gemmi.find_spacegroup_by_name(cleaned_name) if cleaned_name else None
+    preference = setting if setting in {"R", "H"} else ""
+    if preference:
+        alpha = gamma = 0.0
+    group = gemmi.find_spacegroup_by_name(cleaned_name, alpha, gamma, preference) if cleaned_name else None
     if group is None and number:
         group = gemmi.find_spacegroup_by_number(number)
+        if group is not None and group.ext in {"H", "R"}:
+            group = gemmi.find_spacegroup_by_name(group.hm, alpha, gamma, preference)
     if group is None:
         raise CifValidationError(
             "The space-group symbol or International Tables number is not recognized."
@@ -174,39 +202,102 @@ def resolve_space_group(name: str = "", number: int = 0) -> SpaceGroupInfo:
     )
 
 
+_SPACE_GROUP_NAME_TAGS = (
+    "_space_group_name_H-M_alt",
+    "_space_group.name_H-M_alt",
+    "_symmetry_space_group_name_H-M",
+    "_symmetry_space_group_name_H_M",
+)
+_SPACE_GROUP_NUMBER_TAGS = (
+    "_space_group_IT_number",
+    "_space_group.IT_number",
+    "_symmetry_Int_Tables_number",
+)
+_SPACE_GROUP_HALL_TAGS = (
+    "_space_group_name_Hall",
+    "_space_group.name_Hall",
+    "_symmetry_space_group_name_Hall",
+)
+_SYMMETRY_OPERATION_TAGS = (
+    "_space_group_symop_operation_xyz",
+    "_space_group_symop.operation_xyz",
+    "_symmetry_equiv_pos_as_xyz",
+    "_space_group_symop_operation_xyz_",
+    "_symmetry_equiv_pos_as_xyz_",
+)
+
+
+def _first_value(block: Any, tags: tuple[str, ...]) -> str:
+    for tag in tags:
+        value = str(block.find_value(tag) or "").strip().strip("'\"")
+        if value and value not in {"?", "."}:
+            return value
+    return ""
+
+
+def _symmetry_from_block(block: Any) -> SpaceGroupInfo:
+    name = _first_value(block, _SPACE_GROUP_NAME_TAGS)
+    number_text = _first_value(block, _SPACE_GROUP_NUMBER_TAGS)
+    number = int(parse_cif_number(number_text)) if number_text else 0
+    hall = _first_value(block, _SPACE_GROUP_HALL_TAGS)
+    if hall and ":" not in name:
+        group = next((group for group in _gemmi().spacegroup_table() if group.hall == hall), None)
+        if group is not None:
+            name = group.xhm()
+    if not name and not number:
+        for tag in _SYMMETRY_OPERATION_TAGS:
+            operations = block.find_values(tag)
+            if operations:
+                gemmi = _gemmi()
+                try:
+                    group = gemmi.find_spacegroup_by_ops(
+                        gemmi.GroupOps([gemmi.Op(gemmi.cif.as_string(op)) for op in operations])
+                    )
+                except (ValueError, RuntimeError):
+                    continue
+                if group is not None:
+                    name = group.xhm()
+                    break
+    setting = _first_value(block, (
+        "_space_group_IT_coordinate_system_code", "_space_group.IT_coordinate_system_code",
+    )).upper()
+    alpha = parse_cif_number(_first_value(block, ("_cell_angle_alpha",)) or "0")
+    gamma = parse_cif_number(_first_value(block, ("_cell_angle_gamma",)) or "0")
+    return resolve_space_group(name or ("" if number else "P 1"), number, alpha=alpha, gamma=gamma, setting=setting)
+
+
 def extract_cif_symmetry(document: CifDocument, *, block: Any = None) -> SpaceGroupInfo:
-    """Read the supplied space-group symbol/number without changing its setting."""
+    """Read the supplied space group in the coordinate setting of the CIF."""
     try:
         if block is None:
             _parsed, block = read_cif_structure(document.edited_text)
-        name = next(
-            (
-                block.find_value(tag)
-                for tag in (
-                    "_space_group_name_H-M_alt",
-                    "_symmetry_space_group_name_H-M",
-                )
-                if block.find_value(tag)
-            ),
-            "",
-        )
-        number_text = next(
-            (
-                block.find_value(tag)
-                for tag in (
-                    "_space_group_IT_number",
-                    "_symmetry_Int_Tables_number",
-                )
-                if block.find_value(tag)
-            ),
-            "",
-        )
-        number = int(parse_cif_number(number_text)) if number_text not in {"", "?", "."} else 0
-        return resolve_space_group(name or ("" if number else "P 1"), number)
+        return _symmetry_from_block(block)
     except (RuntimeError, ValueError, TypeError) as exc:
         if isinstance(exc, CifValidationError):
             raise
         raise CifValidationError(f"Could not read CIF space-group symmetry: {exc}") from exc
+
+
+def complete_trigonal_operations(block: Any) -> None:
+    """Give the simulator operations in the same axes as the CIF cell."""
+    if any(block.find_values(tag) for tag in _SYMMETRY_OPERATION_TAGS if "." not in tag):
+        return
+    dotted_ops = block.find_values("_space_group_symop.operation_xyz")
+    if dotted_ops:
+        triplets = list(dotted_ops)
+    else:
+        try:
+            symmetry = _symmetry_from_block(block)
+        except (CifValidationError, ValueError):
+            return
+        if symmetry.crystal_system != "trigonal":
+            return
+        gemmi = _gemmi()
+        group = gemmi.find_spacegroup_by_name(symmetry.name)
+        triplets = [gemmi.cif.quote(op.triplet()) for op in group.operations()]
+    loop = block.init_loop("_space_group_symop_", ["operation_xyz"])
+    for triplet in triplets:
+        loop.add_row([triplet])
 
 
 def constrain_unit_cell(
@@ -233,7 +324,7 @@ def constrain_unit_cell(
         values.update(a=length, b=length, alpha=90.0, beta=90.0, gamma=90.0)
     elif system == "orthorhombic":
         values.update(alpha=90.0, beta=90.0, gamma=90.0)
-    elif system == "hexagonal" or (system == "trigonal" and ":H" in symmetry.name.upper()):
+    elif system == "hexagonal" or (system == "trigonal" and not symmetry.rhombohedral_axes):
         length = values[changed_parameter] if changed_parameter in {"a", "b"} else cell.a
         values.update(a=length, b=length, alpha=90.0, beta=90.0, gamma=120.0)
     elif system == "trigonal":
@@ -408,14 +499,8 @@ def update_cif_tables(
     try:
         parsed, block = read_cif_structure(document.edited_text)
         if symmetry is not None:
-            name_tags = (
-                "_space_group_name_H-M_alt",
-                "_symmetry_space_group_name_H-M",
-            )
-            number_tags = (
-                "_space_group_IT_number",
-                "_symmetry_Int_Tables_number",
-            )
+            name_tags = _SPACE_GROUP_NAME_TAGS
+            number_tags = _SPACE_GROUP_NUMBER_TAGS
             existing_name_tags = [tag for tag in name_tags if block.find_value(tag)]
             existing_number_tags = [tag for tag in number_tags if block.find_value(tag)]
             for tag in existing_name_tags or [name_tags[0]]:

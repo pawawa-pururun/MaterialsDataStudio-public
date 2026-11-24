@@ -114,7 +114,7 @@ def correlation_safeguards(
     """Return warnings for known position-parameter correlations."""
     parameters = configuration.parameters
     warnings = []
-    lattice_names = independent_lattice_parameters(configuration.crystal_system)
+    lattice_names = independent_lattice_parameters(configuration.crystal_system, configuration.initial_cell)
     refined_lattice = [
         name for name in lattice_names if parameters.get(name, FitParameter(name, 0, -1, 1)).refine
     ]
@@ -670,7 +670,7 @@ def fit_pattern(
         for name, parameter in parameters.items()
         if name in _NONLINEAR_NAMES and parameter.refine
     ]
-    independent = set(independent_lattice_parameters(configuration.crystal_system))
+    independent = set(independent_lattice_parameters(configuration.crystal_system, configuration.initial_cell))
     nonlinear_names = [
         name
         for name in nonlinear_names
