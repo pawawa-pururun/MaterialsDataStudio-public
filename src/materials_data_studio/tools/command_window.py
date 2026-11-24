@@ -35,6 +35,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from materials_data_studio.core.capabilities import (
+    PROCEDURE_UNAVAILABLE,
+    procedure_execution_available,
+)
 from materials_data_studio.tools.command_engine import COMMAND_HELP, CommandEngine
 from materials_data_studio.tools.command_services import DocumentServices
 from materials_data_studio.tools.graph_document import (
@@ -231,7 +235,10 @@ class CommandWorkspace:
         self.code.setMinimumHeight(240)
         self.tabs.addTab(self.code, "Python · procedure.py")
         layout.addWidget(self.tabs)
-        note = QLabel("Isolated scientific Python · network and Python file I/O disabled · NumPy, selected SciPy, math, statistics and mds only. Windows AppContainer required; no unrestricted fallback. Imported Igor source is read-only.")
+        note = QLabel(
+            "Isolated scientific Python · network and Python file I/O disabled · NumPy, selected SciPy, math, statistics and mds only. Windows AppContainer required; no unrestricted fallback. Imported Igor source is read-only."
+            if procedure_execution_available() else PROCEDURE_UNAVAILABLE
+        )
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QHBoxLayout()
@@ -281,6 +288,7 @@ class CommandWorkspace:
         self.save_timer.timeout.connect(self.flush)
         self.code.textChanged.connect(lambda: self.save_timer.start() if not self.loading else None)
         self.tabs.currentChanged.connect(self.update_buttons)
+        self.update_buttons()
 
     def float_dock(self, dock: QDockWidget) -> None:
         self.dock_transitions[dock] = self.dock_transitions.get(dock, 0) + 1
@@ -580,9 +588,11 @@ class CommandWorkspace:
                 self.loading = False
 
     def update_buttons(self, *_args: Any) -> None:
-        enabled = self.tabs.currentIndex() == 0 and not self.is_running()
+        enabled = procedure_execution_available() and self.tabs.currentIndex() == 0 and not self.is_running()
         self.run_all.setEnabled(enabled)
         self.run_selection.setEnabled(enabled)
+        for button in (self.run_all, self.run_selection):
+            button.setToolTip("" if procedure_execution_available() else PROCEDURE_UNAVAILABLE)
         self.stop_button.setEnabled(self.is_running())
         self.convert_button.setEnabled(not self.is_running())
         editor = self.window.editor
@@ -660,6 +670,9 @@ class CommandWorkspace:
         return getattr(self, "preparing", False) or (self.process is not None and self.process.state() != QProcess.ProcessState.NotRunning)
 
     def start(self, source: str) -> None:
+        if not procedure_execution_available():
+            self.write(PROCEDURE_UNAVAILABLE, "error")
+            return
         if self.is_running() or self.tabs.currentIndex() != 0:
             return
         from materials_data_studio.tools.procedure_policy import validate

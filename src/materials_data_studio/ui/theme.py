@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
 from PySide6.QtGui import QColor, QPalette
@@ -131,9 +132,10 @@ def theme_style_sheet(tokens: ThemeTokens) -> str:
         """
         for block, (background, foreground, border) in block_colors.items()
     )
+    font_rule = 'font-family: "Segoe UI Variable", "Segoe UI";' if sys.platform == "win32" else ""
     return f"""
     * {{
-        font-family: "Segoe UI Variable", "Segoe UI";
+        {font_rule}
         font-size: {tokens.font_pt}pt;
         color: {tokens.text};
     }}

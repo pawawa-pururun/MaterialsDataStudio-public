@@ -13,6 +13,8 @@ from materials_data_studio import bootstrap
 
 
 def test_installed_startup_runs_sdk_before_application_without_update_fetch(monkeypatch):
+    from materials_data_studio.core import matplotlib_cache, startup_metrics
+
     events = []
     callbacks = {}
 
@@ -48,14 +50,16 @@ def test_installed_startup_runs_sdk_before_application_without_update_fetch(monk
     )
     from materials_data_studio.integrations import windows_files
 
+    monkeypatch.setattr(startup_metrics, "process_memory", lambda: {})
+    monkeypatch.setattr(matplotlib_cache, "configure_frozen_matplotlib_cache", lambda: events.append("cache"))
     monkeypatch.setattr(windows_files, "register_document_types", lambda: events.append("register"))
     monkeypatch.setattr(
         windows_files, "unregister_document_types", lambda: events.append("unregister")
     )
     assert bootstrap.main() == 0
-    assert events == ["sdk", "qt"]
+    assert events == ["sdk", "cache", "qt"]
     callbacks["uninstall"]("0.14.7")
-    assert events == ["sdk", "qt", "unregister"]
+    assert events == ["sdk", "cache", "qt", "unregister"]
 
 
 def test_non_installed_source_startup_does_not_load_sdk(monkeypatch):

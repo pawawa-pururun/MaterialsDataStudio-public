@@ -211,10 +211,17 @@ def test_structured_diagnostics_preserve_unknown_property(engine, tmp_path):
 
 
 def test_normal_graph_has_no_spurious_diagnostic(engine):
-    ok(engine, "Display/T/N=G y vs x")
+    ok(engine, 'Display/T/N=G y vs x; ModifyGraph font="DejaVu Sans"')
     report = assess_graph(engine.services.graph(), engine.services.document.render_source())
     assert not report.diagnostics
     assert report.rendered == "supported subset"
+
+
+def test_unavailable_font_still_reports_fidelity_loss(engine):
+    ok(engine, 'Display/N=G y vs x; ModifyGraph font="__MDS_TEST_MISSING_FONT_83d52a__"')
+    report = assess_graph(engine.services.graph(), engine.services.document.render_source())
+    assert {diagnostic.code for diagnostic in report.diagnostics} == {"igor.font.fallback"}
+    assert report.rendered == "partial"
 
 
 def test_unrenderable_state_is_diagnosed_and_not_silently_exported(engine, tmp_path):
@@ -416,7 +423,7 @@ def test_gui_axis_assignment_mixed_history_and_recording(engine, qtbot):
     qtbot.addWidget(window)
     window.bind_document(engine.services.document.render_source())
     window._discard_approved = True
-    window.command_workspace.execute("Display/N=G y vs x; AppendImage map")
+    window.command_workspace.execute('Display/N=G y vs x; AppendImage map; ModifyGraph font="DejaVu Sans"')
     window.apply_properties("trace", "y", {"x_axis": "top"})
     assert window.editor.document.graph("G").traces[0].x_axis == "top"
     assert "top" in window.compatibility.text() or "Supported subset" in window.compatibility.text()

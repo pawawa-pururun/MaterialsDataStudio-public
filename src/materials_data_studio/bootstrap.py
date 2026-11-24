@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 
 def forward_before_gui() -> bool:
     """Attempt optional document delivery before importing the application shell."""
-    from pathlib import Path
     paths = [Path(arg) for arg in sys.argv[1:] if not arg.startswith("-")]
     if not paths or "--new-instance" in sys.argv or any(path.suffix.lower() not in {".mdss", ".mdsg", ".mdsession"} for path in paths):
         return False
@@ -30,6 +30,16 @@ def forward_before_gui() -> bool:
 
 def main() -> int:
     """Handle Velopack fast-exit hooks before any normal application startup."""
+    if "--register-file-types" in sys.argv[1:]:
+        if sys.platform.startswith("linux"):
+            from materials_data_studio.integrations.linux_files import register_document_types
+        elif sys.platform == "win32":
+            from materials_data_studio.integrations.windows_files import register_document_types
+        else:
+            print("macOS document types are registered by the application bundle.")
+            return 0
+        register_document_types()
+        return 0
     if sys.argv[1:2] == ["--mds-update-worker"]:
         from materials_data_studio.integrations.updates import worker_main
         return worker_main(sys.argv[2:])
@@ -37,7 +47,8 @@ def main() -> int:
     if sys.platform == "win32" and (
         getattr(sys, "frozen", False) or any(arg in hooks for arg in sys.argv[1:])
     ):
-        import velopack
+        # The Unix all-platform type check does not install the Windows-only SDK.
+        import velopack  # pyright: ignore[reportMissingImports]
 
         from materials_data_studio.integrations.windows_files import unregister_document_types
 
@@ -52,6 +63,17 @@ def main() -> int:
             .on_before_uninstall_fast_callback(unregister)
             .run()
         )
+
+    from materials_data_studio.core.matplotlib_cache import configure_frozen_matplotlib_cache
+
+    persistent_cache = configure_frozen_matplotlib_cache()
+    if "--prepare-runtime-cache" in sys.argv:
+        index = sys.argv.index("--prepare-runtime-cache")
+        if index + 1 >= len(sys.argv):
+            return 2
+        from materials_data_studio.core.runtime_cache import prepare_runtime_cache
+
+        return 0 if prepare_runtime_cache(Path(sys.argv[index + 1]), persistent_cache) else 1
 
     if forward_before_gui():
         return 0

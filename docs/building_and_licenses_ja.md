@@ -27,7 +27,9 @@ Qtの第三者コードもソースツリーに保持します。ソース内の
 
 `source-manifest.json`／`packaging/corresponding_sources.json` に版、公式URL、SHA-256を固定し、
 Releaseの `SHA256SUMS` で配布物を検証できます。有償サポートへの申込みは不要です。
-公開準備中のため、このリポジトリとReleaseは一時的にprivateです。対応ソースへアクセスできない相手へ、この準備版バイナリを配布しないでください。
+配布バイナリと同じ版のソースを提供し、受領者が対応する部品を再ビルドできるようにします。
+Linux・macOS のビルドも固定した公式ソースとビルド環境から告知を収録します。Qt Wayland と psutil の告知を含みます。
+[ネイティブビルド手順](cross_platform.md)
 
 ## MDSの再ビルド・ライブラリの差替え
 

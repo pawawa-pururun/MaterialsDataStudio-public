@@ -52,6 +52,9 @@ before user execution. These are defense-in-depth controls, not a VM or a guaran
 against every OS/native-library vulnerability or Windows-shared system resource.
 Inspect imported/converted source and results before trusting or sharing them.
 
+Linux and macOS support regular analysis, graph editing and exports. The UI
+and execution broker both disable Python Procedure execution on those platforms.
+
 ## 日本語
 
 セキュリティ修正は最新版を対象とします。private報告窓口が有効な場合はGitHubのSecurityから連絡してください。

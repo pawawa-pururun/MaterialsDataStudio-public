@@ -1,0 +1,1354 @@
+{
+  "entries": {
+    "colormap:Bathymetry9": [
+      768,
+      336,
+      90,
+      16
+    ],
+    "colormap:BlackBody": [
+      864,
+      336,
+      90,
+      16
+    ],
+    "colormap:Blue": [
+      672,
+      308,
+      90,
+      16
+    ],
+    "colormap:BlueBlackRed": [
+      1440,
+      308,
+      90,
+      16
+    ],
+    "colormap:BlueGreenOrange": [
+      0,
+      364,
+      90,
+      16
+    ],
+    "colormap:BlueHot256": [
+      1344,
+      280,
+      90,
+      16
+    ],
+    "colormap:BlueRedGreen": [
+      768,
+      280,
+      90,
+      16
+    ],
+    "colormap:BlueRedGreen256": [
+      1440,
+      280,
+      90,
+      16
+    ],
+    "colormap:BrownViolet": [
+      96,
+      364,
+      90,
+      16
+    ],
+    "colormap:Classification": [
+      1152,
+      364,
+      90,
+      16
+    ],
+    "colormap:ColdWarm": [
+      192,
+      364,
+      90,
+      16
+    ],
+    "colormap:Copper": [
+      1056,
+      308,
+      90,
+      16
+    ],
+    "colormap:Cyan": [
+      768,
+      308,
+      90,
+      16
+    ],
+    "colormap:CyanMagenta": [
+      1248,
+      308,
+      90,
+      16
+    ],
+    "colormap:Cycles": [
+      1056,
+      336,
+      90,
+      16
+    ],
+    "colormap:EOSOrangeBlue11": [
+      576,
+      364,
+      90,
+      16
+    ],
+    "colormap:EOSSpectral11": [
+      672,
+      364,
+      90,
+      16
+    ],
+    "colormap:Fiddle": [
+      1152,
+      336,
+      90,
+      16
+    ],
+    "colormap:Geo": [
+      0,
+      336,
+      90,
+      16
+    ],
+    "colormap:Geo32": [
+      96,
+      336,
+      90,
+      16
+    ],
+    "colormap:Gold": [
+      1152,
+      308,
+      90,
+      16
+    ],
+    "colormap:Grays": [
+      384,
+      280,
+      90,
+      16
+    ],
+    "colormap:Grays16": [
+      288,
+      308,
+      90,
+      16
+    ],
+    "colormap:Grays256": [
+      1056,
+      280,
+      90,
+      16
+    ],
+    "colormap:Green": [
+      576,
+      308,
+      90,
+      16
+    ],
+    "colormap:GreenMagenta16": [
+      480,
+      364,
+      90,
+      16
+    ],
+    "colormap:LandAndSea": [
+      192,
+      336,
+      90,
+      16
+    ],
+    "colormap:LandAndSea8": [
+      288,
+      336,
+      90,
+      16
+    ],
+    "colormap:Magenta": [
+      864,
+      308,
+      90,
+      16
+    ],
+    "colormap:Mocha": [
+      288,
+      364,
+      90,
+      16
+    ],
+    "colormap:Mud": [
+      1056,
+      364,
+      90,
+      16
+    ],
+    "colormap:Pastels": [
+      1248,
+      336,
+      90,
+      16
+    ],
+    "colormap:PastelsMap": [
+      576,
+      336,
+      90,
+      16
+    ],
+    "colormap:PastelsMap20": [
+      672,
+      336,
+      90,
+      16
+    ],
+    "colormap:PlanetEarth": [
+      864,
+      280,
+      90,
+      16
+    ],
+    "colormap:PlanetEarth256": [
+      96,
+      308,
+      90,
+      16
+    ],
+    "colormap:Rainbow": [
+      288,
+      280,
+      90,
+      16
+    ],
+    "colormap:Rainbow16": [
+      384,
+      308,
+      90,
+      16
+    ],
+    "colormap:Rainbow256": [
+      1152,
+      280,
+      90,
+      16
+    ],
+    "colormap:Rainbow4Cycles": [
+      1440,
+      336,
+      90,
+      16
+    ],
+    "colormap:RainbowCycle": [
+      1344,
+      336,
+      90,
+      16
+    ],
+    "colormap:Red": [
+      480,
+      308,
+      90,
+      16
+    ],
+    "colormap:RedWhiteBlue": [
+      576,
+      280,
+      90,
+      16
+    ],
+    "colormap:RedWhiteBlue256": [
+      0,
+      308,
+      90,
+      16
+    ],
+    "colormap:RedWhiteGreen": [
+      1344,
+      308,
+      90,
+      16
+    ],
+    "colormap:RedYellowGreen": [
+      1344,
+      364,
+      90,
+      16
+    ],
+    "colormap:RedYellowGreen10": [
+      1440,
+      364,
+      90,
+      16
+    ],
+    "colormap:Relief": [
+      384,
+      336,
+      90,
+      16
+    ],
+    "colormap:Relief19": [
+      480,
+      336,
+      90,
+      16
+    ],
+    "colormap:SeaLandAndFire": [
+      384,
+      364,
+      90,
+      16
+    ],
+    "colormap:Spectrum": [
+      480,
+      280,
+      90,
+      16
+    ],
+    "colormap:SpectrumBlack": [
+      960,
+      336,
+      90,
+      16
+    ],
+    "colormap:Terrain": [
+      960,
+      280,
+      90,
+      16
+    ],
+    "colormap:Terrain256": [
+      192,
+      308,
+      90,
+      16
+    ],
+    "colormap:Turbo": [
+      1248,
+      364,
+      90,
+      16
+    ],
+    "colormap:VioletOrangeYellow": [
+      192,
+      280,
+      90,
+      16
+    ],
+    "colormap:Viridis": [
+      672,
+      280,
+      90,
+      16
+    ],
+    "colormap:Web216": [
+      960,
+      364,
+      90,
+      16
+    ],
+    "colormap:Yellow": [
+      960,
+      308,
+      90,
+      16
+    ],
+    "colormap:YellowHot256": [
+      1248,
+      280,
+      90,
+      16
+    ],
+    "colormap:dBZ14": [
+      768,
+      364,
+      90,
+      16
+    ],
+    "colormap:dBZ21": [
+      864,
+      364,
+      90,
+      16
+    ],
+    "line:0:dark": [
+      0,
+      252,
+      96,
+      28
+    ],
+    "line:0:light": [
+      1440,
+      84,
+      96,
+      28
+    ],
+    "line:10:dark": [
+      960,
+      252,
+      96,
+      28
+    ],
+    "line:10:light": [
+      864,
+      112,
+      96,
+      28
+    ],
+    "line:11:dark": [
+      1056,
+      252,
+      96,
+      28
+    ],
+    "line:11:light": [
+      960,
+      112,
+      96,
+      28
+    ],
+    "line:12:dark": [
+      1152,
+      252,
+      96,
+      28
+    ],
+    "line:12:light": [
+      1056,
+      112,
+      96,
+      28
+    ],
+    "line:13:dark": [
+      1248,
+      252,
+      96,
+      28
+    ],
+    "line:13:light": [
+      1152,
+      112,
+      96,
+      28
+    ],
+    "line:14:dark": [
+      1344,
+      252,
+      96,
+      28
+    ],
+    "line:14:light": [
+      1248,
+      112,
+      96,
+      28
+    ],
+    "line:15:dark": [
+      1440,
+      252,
+      96,
+      28
+    ],
+    "line:15:light": [
+      1344,
+      112,
+      96,
+      28
+    ],
+    "line:16:dark": [
+      0,
+      280,
+      96,
+      28
+    ],
+    "line:16:light": [
+      1440,
+      112,
+      96,
+      28
+    ],
+    "line:17:dark": [
+      96,
+      280,
+      96,
+      28
+    ],
+    "line:17:light": [
+      0,
+      140,
+      96,
+      28
+    ],
+    "line:1:dark": [
+      96,
+      252,
+      96,
+      28
+    ],
+    "line:1:light": [
+      0,
+      112,
+      96,
+      28
+    ],
+    "line:2:dark": [
+      192,
+      252,
+      96,
+      28
+    ],
+    "line:2:light": [
+      96,
+      112,
+      96,
+      28
+    ],
+    "line:3:dark": [
+      288,
+      252,
+      96,
+      28
+    ],
+    "line:3:light": [
+      192,
+      112,
+      96,
+      28
+    ],
+    "line:4:dark": [
+      384,
+      252,
+      96,
+      28
+    ],
+    "line:4:light": [
+      288,
+      112,
+      96,
+      28
+    ],
+    "line:5:dark": [
+      480,
+      252,
+      96,
+      28
+    ],
+    "line:5:light": [
+      384,
+      112,
+      96,
+      28
+    ],
+    "line:6:dark": [
+      576,
+      252,
+      96,
+      28
+    ],
+    "line:6:light": [
+      480,
+      112,
+      96,
+      28
+    ],
+    "line:7:dark": [
+      672,
+      252,
+      96,
+      28
+    ],
+    "line:7:light": [
+      576,
+      112,
+      96,
+      28
+    ],
+    "line:8:dark": [
+      768,
+      252,
+      96,
+      28
+    ],
+    "line:8:light": [
+      672,
+      112,
+      96,
+      28
+    ],
+    "line:9:dark": [
+      864,
+      252,
+      96,
+      28
+    ],
+    "line:9:light": [
+      768,
+      112,
+      96,
+      28
+    ],
+    "marker:0:dark": [
+      96,
+      140,
+      96,
+      28
+    ],
+    "marker:0:light": [
+      0,
+      0,
+      96,
+      28
+    ],
+    "marker:10:dark": [
+      1056,
+      140,
+      96,
+      28
+    ],
+    "marker:10:light": [
+      960,
+      0,
+      96,
+      28
+    ],
+    "marker:11:dark": [
+      1152,
+      140,
+      96,
+      28
+    ],
+    "marker:11:light": [
+      1056,
+      0,
+      96,
+      28
+    ],
+    "marker:12:dark": [
+      1248,
+      140,
+      96,
+      28
+    ],
+    "marker:12:light": [
+      1152,
+      0,
+      96,
+      28
+    ],
+    "marker:13:dark": [
+      1344,
+      140,
+      96,
+      28
+    ],
+    "marker:13:light": [
+      1248,
+      0,
+      96,
+      28
+    ],
+    "marker:14:dark": [
+      1440,
+      140,
+      96,
+      28
+    ],
+    "marker:14:light": [
+      1344,
+      0,
+      96,
+      28
+    ],
+    "marker:15:dark": [
+      0,
+      168,
+      96,
+      28
+    ],
+    "marker:15:light": [
+      1440,
+      0,
+      96,
+      28
+    ],
+    "marker:16:dark": [
+      96,
+      168,
+      96,
+      28
+    ],
+    "marker:16:light": [
+      0,
+      28,
+      96,
+      28
+    ],
+    "marker:17:dark": [
+      192,
+      168,
+      96,
+      28
+    ],
+    "marker:17:light": [
+      96,
+      28,
+      96,
+      28
+    ],
+    "marker:18:dark": [
+      288,
+      168,
+      96,
+      28
+    ],
+    "marker:18:light": [
+      192,
+      28,
+      96,
+      28
+    ],
+    "marker:19:dark": [
+      384,
+      168,
+      96,
+      28
+    ],
+    "marker:19:light": [
+      288,
+      28,
+      96,
+      28
+    ],
+    "marker:1:dark": [
+      192,
+      140,
+      96,
+      28
+    ],
+    "marker:1:light": [
+      96,
+      0,
+      96,
+      28
+    ],
+    "marker:20:dark": [
+      480,
+      168,
+      96,
+      28
+    ],
+    "marker:20:light": [
+      384,
+      28,
+      96,
+      28
+    ],
+    "marker:21:dark": [
+      576,
+      168,
+      96,
+      28
+    ],
+    "marker:21:light": [
+      480,
+      28,
+      96,
+      28
+    ],
+    "marker:22:dark": [
+      672,
+      168,
+      96,
+      28
+    ],
+    "marker:22:light": [
+      576,
+      28,
+      96,
+      28
+    ],
+    "marker:23:dark": [
+      768,
+      168,
+      96,
+      28
+    ],
+    "marker:23:light": [
+      672,
+      28,
+      96,
+      28
+    ],
+    "marker:24:dark": [
+      864,
+      168,
+      96,
+      28
+    ],
+    "marker:24:light": [
+      768,
+      28,
+      96,
+      28
+    ],
+    "marker:25:dark": [
+      960,
+      168,
+      96,
+      28
+    ],
+    "marker:25:light": [
+      864,
+      28,
+      96,
+      28
+    ],
+    "marker:26:dark": [
+      1056,
+      168,
+      96,
+      28
+    ],
+    "marker:26:light": [
+      960,
+      28,
+      96,
+      28
+    ],
+    "marker:27:dark": [
+      1152,
+      168,
+      96,
+      28
+    ],
+    "marker:27:light": [
+      1056,
+      28,
+      96,
+      28
+    ],
+    "marker:28:dark": [
+      1248,
+      168,
+      96,
+      28
+    ],
+    "marker:28:light": [
+      1152,
+      28,
+      96,
+      28
+    ],
+    "marker:29:dark": [
+      1344,
+      168,
+      96,
+      28
+    ],
+    "marker:29:light": [
+      1248,
+      28,
+      96,
+      28
+    ],
+    "marker:2:dark": [
+      288,
+      140,
+      96,
+      28
+    ],
+    "marker:2:light": [
+      192,
+      0,
+      96,
+      28
+    ],
+    "marker:30:dark": [
+      1440,
+      168,
+      96,
+      28
+    ],
+    "marker:30:light": [
+      1344,
+      28,
+      96,
+      28
+    ],
+    "marker:31:dark": [
+      0,
+      196,
+      96,
+      28
+    ],
+    "marker:31:light": [
+      1440,
+      28,
+      96,
+      28
+    ],
+    "marker:32:dark": [
+      96,
+      196,
+      96,
+      28
+    ],
+    "marker:32:light": [
+      0,
+      56,
+      96,
+      28
+    ],
+    "marker:33:dark": [
+      192,
+      196,
+      96,
+      28
+    ],
+    "marker:33:light": [
+      96,
+      56,
+      96,
+      28
+    ],
+    "marker:34:dark": [
+      288,
+      196,
+      96,
+      28
+    ],
+    "marker:34:light": [
+      192,
+      56,
+      96,
+      28
+    ],
+    "marker:35:dark": [
+      384,
+      196,
+      96,
+      28
+    ],
+    "marker:35:light": [
+      288,
+      56,
+      96,
+      28
+    ],
+    "marker:36:dark": [
+      480,
+      196,
+      96,
+      28
+    ],
+    "marker:36:light": [
+      384,
+      56,
+      96,
+      28
+    ],
+    "marker:37:dark": [
+      576,
+      196,
+      96,
+      28
+    ],
+    "marker:37:light": [
+      480,
+      56,
+      96,
+      28
+    ],
+    "marker:38:dark": [
+      672,
+      196,
+      96,
+      28
+    ],
+    "marker:38:light": [
+      576,
+      56,
+      96,
+      28
+    ],
+    "marker:39:dark": [
+      768,
+      196,
+      96,
+      28
+    ],
+    "marker:39:light": [
+      672,
+      56,
+      96,
+      28
+    ],
+    "marker:3:dark": [
+      384,
+      140,
+      96,
+      28
+    ],
+    "marker:3:light": [
+      288,
+      0,
+      96,
+      28
+    ],
+    "marker:40:dark": [
+      864,
+      196,
+      96,
+      28
+    ],
+    "marker:40:light": [
+      768,
+      56,
+      96,
+      28
+    ],
+    "marker:41:dark": [
+      960,
+      196,
+      96,
+      28
+    ],
+    "marker:41:light": [
+      864,
+      56,
+      96,
+      28
+    ],
+    "marker:42:dark": [
+      1056,
+      196,
+      96,
+      28
+    ],
+    "marker:42:light": [
+      960,
+      56,
+      96,
+      28
+    ],
+    "marker:43:dark": [
+      1152,
+      196,
+      96,
+      28
+    ],
+    "marker:43:light": [
+      1056,
+      56,
+      96,
+      28
+    ],
+    "marker:44:dark": [
+      1248,
+      196,
+      96,
+      28
+    ],
+    "marker:44:light": [
+      1152,
+      56,
+      96,
+      28
+    ],
+    "marker:45:dark": [
+      1344,
+      196,
+      96,
+      28
+    ],
+    "marker:45:light": [
+      1248,
+      56,
+      96,
+      28
+    ],
+    "marker:46:dark": [
+      1440,
+      196,
+      96,
+      28
+    ],
+    "marker:46:light": [
+      1344,
+      56,
+      96,
+      28
+    ],
+    "marker:47:dark": [
+      0,
+      224,
+      96,
+      28
+    ],
+    "marker:47:light": [
+      1440,
+      56,
+      96,
+      28
+    ],
+    "marker:48:dark": [
+      96,
+      224,
+      96,
+      28
+    ],
+    "marker:48:light": [
+      0,
+      84,
+      96,
+      28
+    ],
+    "marker:49:dark": [
+      192,
+      224,
+      96,
+      28
+    ],
+    "marker:49:light": [
+      96,
+      84,
+      96,
+      28
+    ],
+    "marker:4:dark": [
+      480,
+      140,
+      96,
+      28
+    ],
+    "marker:4:light": [
+      384,
+      0,
+      96,
+      28
+    ],
+    "marker:50:dark": [
+      288,
+      224,
+      96,
+      28
+    ],
+    "marker:50:light": [
+      192,
+      84,
+      96,
+      28
+    ],
+    "marker:51:dark": [
+      384,
+      224,
+      96,
+      28
+    ],
+    "marker:51:light": [
+      288,
+      84,
+      96,
+      28
+    ],
+    "marker:52:dark": [
+      480,
+      224,
+      96,
+      28
+    ],
+    "marker:52:light": [
+      384,
+      84,
+      96,
+      28
+    ],
+    "marker:53:dark": [
+      576,
+      224,
+      96,
+      28
+    ],
+    "marker:53:light": [
+      480,
+      84,
+      96,
+      28
+    ],
+    "marker:54:dark": [
+      672,
+      224,
+      96,
+      28
+    ],
+    "marker:54:light": [
+      576,
+      84,
+      96,
+      28
+    ],
+    "marker:55:dark": [
+      768,
+      224,
+      96,
+      28
+    ],
+    "marker:55:light": [
+      672,
+      84,
+      96,
+      28
+    ],
+    "marker:56:dark": [
+      864,
+      224,
+      96,
+      28
+    ],
+    "marker:56:light": [
+      768,
+      84,
+      96,
+      28
+    ],
+    "marker:57:dark": [
+      960,
+      224,
+      96,
+      28
+    ],
+    "marker:57:light": [
+      864,
+      84,
+      96,
+      28
+    ],
+    "marker:58:dark": [
+      1056,
+      224,
+      96,
+      28
+    ],
+    "marker:58:light": [
+      960,
+      84,
+      96,
+      28
+    ],
+    "marker:59:dark": [
+      1152,
+      224,
+      96,
+      28
+    ],
+    "marker:59:light": [
+      1056,
+      84,
+      96,
+      28
+    ],
+    "marker:5:dark": [
+      576,
+      140,
+      96,
+      28
+    ],
+    "marker:5:light": [
+      480,
+      0,
+      96,
+      28
+    ],
+    "marker:60:dark": [
+      1248,
+      224,
+      96,
+      28
+    ],
+    "marker:60:light": [
+      1152,
+      84,
+      96,
+      28
+    ],
+    "marker:61:dark": [
+      1344,
+      224,
+      96,
+      28
+    ],
+    "marker:61:light": [
+      1248,
+      84,
+      96,
+      28
+    ],
+    "marker:62:dark": [
+      1440,
+      224,
+      96,
+      28
+    ],
+    "marker:62:light": [
+      1344,
+      84,
+      96,
+      28
+    ],
+    "marker:6:dark": [
+      672,
+      140,
+      96,
+      28
+    ],
+    "marker:6:light": [
+      576,
+      0,
+      96,
+      28
+    ],
+    "marker:7:dark": [
+      768,
+      140,
+      96,
+      28
+    ],
+    "marker:7:light": [
+      672,
+      0,
+      96,
+      28
+    ],
+    "marker:8:dark": [
+      864,
+      140,
+      96,
+      28
+    ],
+    "marker:8:light": [
+      768,
+      0,
+      96,
+      28
+    ],
+    "marker:9:dark": [
+      960,
+      140,
+      96,
+      28
+    ],
+    "marker:9:light": [
+      864,
+      0,
+      96,
+      28
+    ]
+  },
+  "format": "mds-graph-previews-1",
+  "images": {
+    "graph-previews.png": "e162760dc65700a94970872b969125e6839ae643e249794c66497c670a4f05d6",
+    "graph-previews@2x.png": "55e9e2feb7b4ad6edbbe468f076cea79b04a20652d9e216fb0a50edf4b8153b2"
+  },
+  "input_signature": "922f0fc536f946e103392e1b7e4db0e5833b46a8459768a3bbfa2c42e8166d93"
+}

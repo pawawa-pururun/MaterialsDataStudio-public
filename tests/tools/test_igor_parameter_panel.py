@@ -258,6 +258,7 @@ def test_successful_panel_initialization_opens_modeless_panel(window):
 
 
 def test_gui_run_enables_interaction_only_in_temporary_context(window, monkeypatch):
+    monkeypatch.setattr("materials_data_studio.tools.command_window.procedure_execution_available", lambda: True)
     from PySide6.QtCore import QProcess
 
     workspace = window.command_workspace

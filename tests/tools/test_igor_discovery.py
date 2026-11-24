@@ -10,6 +10,7 @@ import pytest
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
+from materials_data_studio.core.capabilities import procedure_execution_available
 from materials_data_studio.tools.command_engine import CommandEngine
 from materials_data_studio.tools.command_services import DocumentServices
 from materials_data_studio.tools.graph_document import load_graph_document, save_graph_document
@@ -278,6 +279,7 @@ def test_new_operations_through_reviewed_procedure_api(engine):
     assert engine.services.graph().traces[0].box.notched
 
 
+@pytest.mark.skipif(not procedure_execution_available(), reason="No OS sandbox backend on this platform")
 def test_discovery_operations_in_appcontainer(engine, tmp_path):
     from materials_data_studio.tools.procedure_sandbox import launch
     (tmp_path / "input").mkdir()

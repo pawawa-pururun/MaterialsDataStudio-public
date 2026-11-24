@@ -23,6 +23,7 @@ from ctypes import wintypes as w
 from pathlib import Path
 from typing import Any
 
+from materials_data_studio.core.capabilities import procedure_execution_available
 from materials_data_studio.version import __version__
 
 
@@ -65,7 +66,7 @@ def api(dll: Any, name: str, result: Any, *args: Any) -> Any:
 
 
 def token_policy() -> dict[str, int]:
-    if sys.platform != "win32":
+    if not procedure_execution_available():
         raise SandboxUnavailable("Python procedures require Windows AppContainer isolation; execution is disabled on this platform.")
     kernel, security = ctypes.WinDLL("kernel32", use_last_error=True), ctypes.WinDLL("advapi32", use_last_error=True)
     process = api(kernel, "GetCurrentProcess", w.HANDLE)()
@@ -245,7 +246,7 @@ class ExtendedLimits(ctypes.Structure):
 
 
 def launch(root: Path, *, probe: bool = False) -> int:
-    if sys.platform != "win32":
+    if not procedure_execution_available():
         raise SandboxUnavailable("Windows AppContainer is required; no unrestricted fallback is provided.")
     root = canonical_sandbox_root(root)
     from materials_data_studio.tools.procedure_interaction import (

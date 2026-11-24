@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from PySide6.QtGui import QIcon
+
+from materials_data_studio.core.resources import resource_root
 
 TOOLBAR_ICON_NAMES = (
     "new",
@@ -19,11 +20,6 @@ TOOLBAR_ICON_NAMES = (
     "send_to_igor",
     "edit_graph",
 )
-
-
-def resource_root() -> Path:
-    """Return the source checkout or PyInstaller resource root."""
-    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3]))
 
 
 def toolbar_icon_path(name: str, theme: str) -> Path:

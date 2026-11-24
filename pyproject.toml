@@ -18,16 +18,23 @@ dependencies = [
   "pandas>=2.2,<4",
   "scipy>=1.14,<2",
   "matplotlib>=3.9,<4",
-  "PySide6-Essentials>=6.8,<7",
+  "PySide6-Essentials>=6.11.2,<7",
   "pyqtgraph>=0.13.7,<0.15",
   "gemmi>=0.7,<0.8",
   "pymatgen>=2025.1",
   "h5py>=3.12,<4",
   "igor2>=0.5.13,<0.6",
+  "psutil>=6,<8",
   "velopack==1.2.161 ; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
+mcp = [
+  "anyio>=4.5,<5",
+  "mcp>=1.26,<2",
+  "pydantic>=2.11,<3",
+  "pypdf>=6,<7",
+]
 mp-builder = [
   "pyarrow>=19,<27",
   "deltalake>=1.5,<2",
@@ -46,8 +53,14 @@ dev = [
 [project.gui-scripts]
 materials-data-studio = "materials_data_studio.bootstrap:main"
 
+[project.scripts]
+materials-data-studio-mcp = "materials_data_studio.graph_mcp.server:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/materials_data_studio"]
+
+[tool.hatch.build.hooks.custom]
+path = "packaging/hatch_build.py"
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config --import-mode=importlib"
@@ -72,6 +85,7 @@ ignore = [
 
 [tool.pyright]
 pythonVersion = "3.12"
+pythonPlatform = "All"
 typeCheckingMode = "standard"
 include = ["src"]
 exclude = ["tests"]

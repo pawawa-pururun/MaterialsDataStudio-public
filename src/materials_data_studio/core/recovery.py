@@ -102,7 +102,11 @@ def diagnostic_logs(*, redact_paths: bool = True, log_directory: Path | None = N
                 payload = stream.read(5 * 1024**2)
             if redact_paths:
                 text = payload.decode("utf-8", errors="replace")
-                text = re.sub(r"(?i)(?:[a-z]:[\\/]|\\\\)[^\r\n\"']+", "<local path>", text)
+                text = re.sub(r"(?i)(?<!\w)(?:[a-z]:[\\/]|\\\\)[^\r\n\"']+", "<local path>", text)
+                # Boundaries exclude URL schemes while covering quoted paths
+                # with spaces as well as unquoted Linux/macOS absolute paths.
+                text = re.sub(r"([\"'])(/(?!/)[^\r\n]*?)\1", r"\1<local path>\1", text)
+                text = re.sub(r"(?<![\w:/])/(?![/\s])[^\r\n\"'<>]+", "<local path>", text)
                 payload = text.encode("utf-8")
             result[path.name] = payload
     return result

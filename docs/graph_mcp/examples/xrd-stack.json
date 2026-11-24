@@ -1,0 +1,28 @@
+{
+  "output_dir": "xrd-stack-output",
+  "recipe": {
+    "sources": {
+      "scans": {
+        "path": ".test-tmp/graph-editor-baselines/solid-state-v2/cases/d01_xrd_stacked/inputs/input.csv"
+      }
+    },
+    "columns": {
+      "angle": {"source": "scans", "column": "d01_two_theta", "unit": "degree"},
+      "scan700": {"source": "scans", "column": "d01_counts0", "unit": "count"},
+      "scan800": {"source": "scans", "column": "d01_counts1", "unit": "count"},
+      "scan900": {"source": "scans", "column": "d01_counts2", "unit": "count"}
+    },
+    "plot": {
+      "kind": "xrd_stack",
+      "scans": [
+        {"x": "angle", "y": "scan700", "label": "Annealed at 700 K"},
+        {"x": "angle", "y": "scan800", "label": "Annealed at 800 K"},
+        {"x": "angle", "y": "scan900", "label": "Annealed at 900 K"}
+      ],
+      "normalization": "peak100",
+      "offsets": [0, 120, 240],
+      "angle_limits_deg": [10, 80]
+    },
+    "provenance": {"origin": "Synthetic data for the Graph Editor baseline"}
+  }
+}

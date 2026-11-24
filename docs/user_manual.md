@@ -98,6 +98,16 @@ Windowsのインストーラ導入版では、起動時に更新を確認し、�
 
 0.15.0より前の版にはこの機能がないため、最初の導入には最新版のSetupを使用してください。ソース版・portable版もSetupで導入します。設定・保存ファイル・参照DBは保持され、更新確認で測定データを送信しません。
 
+### Linux・macOS 版
+
+Linux では配布フォルダを展開し、`./MaterialsDataStudio` を実行します。文書形式と
+ランチャーは `./MaterialsDataStudio --register-file-types`、または Preferences の
+Applications タブでユーザー単位に登録できます。
+Apple Silicon Mac では DMG 内のアプリを Applications にコピーします。
+通常の解析、グラフ編集、出力と Procedure のソース編集・変換は両方で利用できます。
+Python Procedure の実行は Windows の隔離環境を使います。
+詳しくは [対応環境とビルド手順](cross_platform.md) を参照してください。
+
 ### 1.2 開発環境から起動する
 
 リポジトリから起動する場合は Python 3.12 と `uv` を用意し、リポジトリ直下で

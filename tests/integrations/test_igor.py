@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -124,3 +125,17 @@ def test_launcher_falls_back_to_file_association(tmp_path: Path) -> None:
     opened: list[str] = []
     IgorLauncher(association_opener=opened.append).launch(experiment)
     assert opened == [str(experiment)]
+
+
+def test_macos_app_bundle_launch_preserves_paths_as_separate_arguments(tmp_path: Path, monkeypatch) -> None:
+    app = tmp_path / "Igor Pro 10.app"
+    app.mkdir()
+    experiment = tmp_path / "graph with spaces.h5xp"
+    calls = []
+    monkeypatch.setattr(sys, "platform", "darwin")
+    launcher = IgorLauncher(popen=lambda args, **_kwargs: calls.append(args))  # type: ignore[arg-type]
+    launcher.launch(experiment, str(app))
+    assert calls == [["/usr/bin/open", "-a", str(app), str(experiment)]]
+    calls.clear()
+    launcher.launch(experiment)
+    assert calls == [["/usr/bin/open", str(experiment)]]

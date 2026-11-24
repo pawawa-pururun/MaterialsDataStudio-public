@@ -1,0 +1,35 @@
+{
+  "output_dir": "ppms-cp-output",
+  "recipe": {
+    "sources": {"run": {"path": ".test-tmp/graph-editor-baselines/solid-state-v2/cases/d07_ppms_low_t_cp/inputs/input.csv"}},
+    "columns": {
+      "temperature": {"source": "run", "column": "d07_temperature", "unit": "K"},
+      "capacity": {"source": "run", "column": "d07_cp_uj_k", "unit": "µJ/K"},
+      "sigma": {"source": "run", "column": "d07_cp_error_uj_k", "unit": "µJ/K"},
+      "reference": {"source": "run", "column": "d07_reference", "unit": "mJ/(mol K²)"}
+    },
+    "transforms": [
+      {"op": "power", "name": "temperature_sq", "wave": "temperature", "exponent": 2, "unit": "K²"},
+      {"op": "molar_cp", "name": "molar_cp", "wave": "capacity", "sample_mass_mg": 5, "molar_mass_g_mol": 100},
+      {"op": "molar_cp", "name": "molar_sigma", "wave": "sigma", "sample_mass_mg": 5, "molar_mass_g_mol": 100},
+      {"op": "divide", "name": "cp_per_t", "wave": "molar_cp", "other": "temperature", "unit": "J/(mol K²)"},
+      {"op": "divide", "name": "sigma_per_t", "wave": "molar_sigma", "other": "temperature", "unit": "J/(mol K²)"},
+      {"op": "scale", "name": "cp_display", "wave": "cp_per_t", "factor": 1000, "unit": "mJ/(mol K²)"},
+      {"op": "scale", "name": "sigma_display", "wave": "sigma_per_t", "factor": 1000, "unit": "mJ/(mol K²)"}
+    ],
+    "plot": {
+      "kind": "xy",
+      "panels": [{
+        "name": "heat_capacity",
+        "x": {"label": "T² (K²)"},
+        "y": {"label": "Cₚ/T (mJ mol⁻¹ K⁻²)"},
+        "traces": [
+          {"name": "model", "x": "temperature_sq", "y": "reference", "label": "Supplied γ + βT²", "color": "#D55E00"},
+          {"name": "data", "x": "temperature_sq", "y": "cp_display", "error_y": "sigma_display", "label": "Observations (bars: 1σ)", "color": "#0072B2", "style": "points"}
+        ],
+        "legend_notes": ["Sample mass = 5 mg", "Molar mass = 100 g/mol"]
+      }]
+    },
+    "provenance": {"gamma_J_mol_K2": 0.012, "beta_J_mol_K4": 0.00024, "error_meaning": "Supplied one-sigma Cp uncertainty"}
+  }
+}

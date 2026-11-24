@@ -12,6 +12,8 @@ import traceback
 from pathlib import Path
 from typing import TextIO
 
+from materials_data_studio.core.capabilities import procedure_execution_available
+
 _fault_stream: TextIO | None = None
 
 _SMOKE_CIF = """data_NaCl
@@ -165,7 +167,12 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
             from PySide6.QtWidgets import QApplication
 
             from materials_data_studio.tools.pxp_model import PxpDrawing
+            from materials_data_studio.ui.preview_assets import preview_icon
             application = QApplication.instance() or QApplication([])
+            for key in ("marker:16:light", "line:7:dark", "colormap:Viridis"):
+                icon = preview_icon(key)
+                if icon is None or icon.isNull():
+                    raise RuntimeError(f"Built graph preview is unavailable: {key}")
             window = GraphEditorWindow()
             try:
                 window.bind_graph_document(restored)
@@ -226,6 +233,8 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
                        for action in (window.open_action, window.save_action, window.import_action)):
                     raise RuntimeError("Frozen Graph Editor toolbar failed")
                 workspace = window.command_workspace
+                if not procedure_execution_available() and (workspace.run_all.isEnabled() or workspace.run_selection.isEnabled()):
+                    raise RuntimeError("Procedure Run buttons must be disabled without an OS sandbox")
                 workspace.output.clear()
                 for n in range(3):
                     workspace.code.setPlainText(f"print({n})")
@@ -254,177 +263,186 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
             finally:
                 window._discard_approved = True
                 window.close()
-            sandbox_root = Path(temporary) / "sandbox"
-            (sandbox_root / "input").mkdir(parents=True)
-            (sandbox_root / "output").mkdir()
-            procedure_input = sandbox_root / "input/input.mdsg"
-            procedure_source = sandbox_root / "input/procedure.py"
-            procedure_output = sandbox_root / "output/output.mdsg"
-            save_graph_document(procedure_input, restored)
-            virtual_output = sandbox_root / "virtual-only.dat"
-            write_input_resources(sandbox_root / "input/igor_inputs.json", [{
-                "name": "synthetic_input.dat",
-                "path": str(Path(temporary) / "not-mounted" / "synthetic_input.dat"),
-                "text": "Generated instrument header\r\n[Data]\r\nPosition Signal\r\n0 10\r\n1 20\r\n2 30\r\n",
-            }])
-            converted = build_python(analyze_procedures(
-                "Function FrozenScale(w)\nWave w\nw*=2\nEnd\n"
-                "Function FrozenConverted()\n"
-                "Make/D/N=5 convertedWave\nconvertedWave=p+0.5\nFrozenScale(convertedWave)\n"
-                "Display/N=ConvertedGraph convertedWave\n"
-                "ModifyGraph tick=2,mirror=1,lsize(convertedWave)=2\nFrozenInputs()\nEnd\n"
-                "Function FrozenInputs()\n"
-                "NewPath/O GlobalRoot\n"
-                'LoadWave/G/D/N=prepared/P=GlobalRoot "synthetic_input.dat"\n'
-                "Variable handle\n"
-                f'Open handle as "{virtual_output.as_posix()}"\n'
-                'fprintf handle, "Position Signal\\r\\n0 5\\r\\n1 6\\r\\n2 7\\r\\n"\n'
-                "Close handle\n"
-                f'LoadWave/G/D/N=virtual "{virtual_output.as_posix()}"\n'
-                f'DeleteFile "{virtual_output.as_posix()}"\n'
-                "Duplicate/O prepared1 preparedTwice\npreparedTwice*=2\n"
-                "Display/N=PreparedGraph preparedTwice vs prepared0\nEnd\n"
-            ), "FrozenConverted", [])
-            procedure_source.write_text(
-                'from mds import wave,graph,command\n'
-                'wave.create("pythonWave",[1.,2.,3.])\n'
-                'graph.new("PythonGraph").append("pythonWave")\n'
-                'print("worker output OK")\n' + converted +
-                'command("ModifyGraph/W=ConvertedGraph rgb(convertedWave)=(12000,24000,48000)")\n'
-                'print("converted Igor and public command OK")\n', encoding="utf-8")
-            from PySide6.QtCore import QProcess
-            process = QProcess()
-            worker_args = [] if getattr(sys, "frozen", False) else ["-m", "materials_data_studio"]
-            process.start(sys.executable, [*worker_args, "--procedure-broker", str(sandbox_root)])
-            if not process.waitForStarted(10000) or not process.waitForFinished(90000):
-                process.kill()
-                process.waitForFinished(1500)
-                raise RuntimeError("Frozen Python worker did not finish")
-            if process.exitCode() != 0 or not procedure_output.exists():
-                diagnostics = bytes(process.readAllStandardOutput().data()).decode("utf-8", errors="replace")
-                diagnostics += bytes(process.readAllStandardError().data()).decode("utf-8", errors="replace")
-                log_path = sandbox_root / "output/procedure.log"
-                if log_path.exists():
-                    diagnostics += log_path.read_text(encoding="utf-8")
-                raise RuntimeError(f"Frozen Python worker failed (exit {process.exitCode()}): {diagnostics}")
-            executed = load_graph_document(procedure_output)
-            if not executed.graph("PythonGraph").traces:
-                raise RuntimeError("Frozen Python worker did not save canonical edits")
-            converted_graph = executed.graph("ConvertedGraph")
-            converted_wave = executed.render_source().wave("convertedWave")
-            if (converted_wave is None or not np.array_equal(converted_wave.data, [1., 3., 5., 7., 9.])
-                    or converted_graph.traces[0].line_width != 2
-                    or converted_graph.style.axis_defaults.tick != 2
-                    or converted_graph.style.axis_defaults.mirror != 1
-                    or converted_graph.traces[0].color_igor != (12000, 24000, 48000)):
-                raise RuntimeError("Frozen converted Igor/runtime/public mds.command execution failed")
-            if "worker output OK" not in (sandbox_root / "output/procedure.log").read_text(encoding="utf-8"):
-                raise RuntimeError("Frozen Python stdout was not captured")
-            if "converted Igor and public command OK" not in (sandbox_root / "output/procedure.log").read_text(encoding="utf-8"):
-                raise RuntimeError("Frozen converted Igor completion was not captured")
-            prepared_wave = executed.render_source().wave("preparedTwice")
-            virtual_wave = executed.render_source().wave("virtual1")
-            if (prepared_wave is None or not np.array_equal(prepared_wave.data, [20., 40., 60.])
-                    or virtual_wave is None or not np.array_equal(virtual_wave.data, [5., 6., 7.])
-                    or not executed.graph("PreparedGraph").traces
-                    or "igor_input_resources" in executed.current.environment
-                    or "igor_input_resources" in load_graph_document(procedure_input).current.environment
-                    or virtual_output.exists()):
-                raise RuntimeError("Frozen prepared-sidecar/isolated virtual text I/O workflow failed")
-
-            # An independent, explicitly interactive job exercises the actual
-            # broker/worker IPC in the frozen executable. A scripted trusted
-            # responder supplies generated values/text; no private samples or
-            # host files are mounted in the isolated procedure.
-            interactive_root = Path(temporary) / "interactive-sandbox"
-            (interactive_root / "input").mkdir(parents=True)
-            (interactive_root / "output").mkdir()
-            interactive_input = interactive_root / "input/input.mdsg"
-            interactive_output = interactive_root / "output/output.mdsg"
-            save_graph_document(interactive_input, restored)
-            (interactive_root / "input/procedure.json").write_text(
-                json.dumps({"igor_interactive": True}), encoding="utf-8")
-            interactive_code = build_python(analyze_procedures(
-                "#pragma rtGlobals=1\nFunction FrozenInteractive()\n"
-                "Variable weight=10,mode=1\nString caption=\"Generated\"\n"
-                'Prompt weight,"Weight (mg)"\nPrompt caption,"Sample label"\n'
-                'Prompt mode,"Mode",popup,"First;Second;"\n'
-                'DoPrompt "Frozen macro inputs",weight,caption,mode\n'
-                "Make/D/N=1 acceptedWeight,acceptedMode\nacceptedWeight=weight\nacceptedMode=mode\n"
-                "Variable handle\n"
-                'Open/D/R/F="PRF text:*.prf;"/M="Select a *.prf file" handle\n'
-                "LoadWave/G/D/N=dialogData S_fileName\n"
-                "Display/N=InteractiveGraph dialogData1 vs dialogData0\n"
-                'Label left "Signal"\nLabel bottom "Position"\n'
-                'ModifyGraph tick=2,mirror=1,fSize=12,font="DejaVu Sans"\n'
-                "Make/D/N=3 legacyWave\nlegacyWave=p+1\n"
-                "Variable legacyValue=legacyWave[numpnts(legacyWave)]\n"
-                "Make/D/N=1 legacyLast\nlegacyLast=legacyValue\n"
-                'DoAlert 0,"Frozen interactive macro finished"\n'
-                'DoPrompt "Frozen cancellation",weight\n'
-                "Make/D/N=1 cancelledFlag,preservedWeight\ncancelledFlag=V_flag\npreservedWeight=weight\n"
-                "End\n"
-            ), "FrozenInteractive", [])
-            (interactive_root / "input/procedure.py").write_text(interactive_code, encoding="utf-8")
-            selected_text = "Position Signal\r\n0 5\r\n1 7\r\n2 11\r\n"
-            selected_path = str(Path(temporary) / "explicit-selection" / "synthetic.prf")
-            session = ProcedureInteractionSession(interactive_root)
-            process = QProcess()
-            kinds: list[str] = []
-            try:
-                process.start(sys.executable, [*worker_args, "--procedure-broker", str(interactive_root)])
-                if not process.waitForStarted(10000):
-                    raise RuntimeError("Frozen interactive worker did not start")
-                deadline = time.monotonic() + 90
-                while not process.waitForFinished(50):
-                    application.processEvents()
-                    request = session.poll()
-                    if request is not None:
-                        kinds.append(request["kind"])
-                        if request["kind"] == "file_open":
-                            if request["payload"]["title"] != "Select a *.prf file":
-                                raise RuntimeError("Frozen macro file-dialog title was not preserved")
-                            payload = {"resources": [{"name": "synthetic.prf", "path": selected_path,
-                                                       "text": selected_text}], "selected": selected_path}
-                            session.respond(request, {"status": "ok", "payload": payload})
-                        elif request["kind"] == "prompt":
-                            if request["payload"]["title"] == "Frozen cancellation":
-                                session.respond(request, {"status": "cancelled", "payload": {}})
-                            else:
-                                session.respond(request, {"status": "ok", "payload": {"values": {
-                                    "weight": 12.5, "caption": "Generated accepted", "mode": 1}}})
-                        elif request["kind"] == "message":
-                            session.respond(request, {"status": "ok", "payload": {"button": 0}})
-                        else:
-                            raise RuntimeError("Unexpected frozen macro interaction")
-                    if time.monotonic() > deadline:
-                        raise RuntimeError("Frozen interactive worker exceeded its smoke timeout")
-                if process.exitCode() != 0 or not interactive_output.exists():
-                    log_path = interactive_root / "output/procedure.log"
-                    diagnostics = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
-                    diagnostics += bytes(process.readAllStandardOutput().data()).decode("utf-8", errors="replace")
-                    diagnostics += bytes(process.readAllStandardError().data()).decode("utf-8", errors="replace")
-                    raise RuntimeError("Frozen interactive worker failed: " + diagnostics)
-            finally:
-                session.close()
-                if process.state() != QProcess.ProcessState.NotRunning:
+            if procedure_execution_available():
+                sandbox_root = Path(temporary) / "sandbox"
+                (sandbox_root / "input").mkdir(parents=True)
+                (sandbox_root / "output").mkdir()
+                procedure_input = sandbox_root / "input/input.mdsg"
+                procedure_source = sandbox_root / "input/procedure.py"
+                procedure_output = sandbox_root / "output/output.mdsg"
+                save_graph_document(procedure_input, restored)
+                virtual_output = sandbox_root / "virtual-only.dat"
+                write_input_resources(sandbox_root / "input/igor_inputs.json", [{
+                    "name": "synthetic_input.dat",
+                    "path": str(Path(temporary) / "not-mounted" / "synthetic_input.dat"),
+                    "text": "Generated instrument header\r\n[Data]\r\nPosition Signal\r\n0 10\r\n1 20\r\n2 30\r\n",
+                }])
+                converted = build_python(analyze_procedures(
+                    "Function FrozenScale(w)\nWave w\nw*=2\nEnd\n"
+                    "Function FrozenConverted()\n"
+                    "Make/D/N=5 convertedWave\nconvertedWave=p+0.5\nFrozenScale(convertedWave)\n"
+                    "Display/N=ConvertedGraph convertedWave\n"
+                    "ModifyGraph tick=2,mirror=1,lsize(convertedWave)=2\nFrozenInputs()\nEnd\n"
+                    "Function FrozenInputs()\n"
+                    "NewPath/O GlobalRoot\n"
+                    'LoadWave/G/D/N=prepared/P=GlobalRoot "synthetic_input.dat"\n'
+                    "Variable handle\n"
+                    f'Open handle as "{virtual_output.as_posix()}"\n'
+                    'fprintf handle, "Position Signal\\r\\n0 5\\r\\n1 6\\r\\n2 7\\r\\n"\n'
+                    "Close handle\n"
+                    f'LoadWave/G/D/N=virtual "{virtual_output.as_posix()}"\n'
+                    f'DeleteFile "{virtual_output.as_posix()}"\n'
+                    "Duplicate/O prepared1 preparedTwice\npreparedTwice*=2\n"
+                    "Display/N=PreparedGraph preparedTwice vs prepared0\nEnd\n"
+                ), "FrozenConverted", [])
+                procedure_source.write_text(
+                    'from mds import wave,graph,command\n'
+                    'wave.create("pythonWave",[1.,2.,3.])\n'
+                    'graph.new("PythonGraph").append("pythonWave")\n'
+                    'print("worker output OK")\n' + converted +
+                    'command("ModifyGraph/W=ConvertedGraph rgb(convertedWave)=(12000,24000,48000)")\n'
+                    'print("converted Igor and public command OK")\n', encoding="utf-8")
+                from PySide6.QtCore import QProcess
+                process = QProcess()
+                worker_args = [] if getattr(sys, "frozen", False) else ["-m", "materials_data_studio"]
+                process.start(sys.executable, [*worker_args, "--procedure-broker", str(sandbox_root)])
+                if not process.waitForStarted(10000) or not process.waitForFinished(90000):
                     process.kill()
                     process.waitForFinished(1500)
-            interactive_result = load_graph_document(interactive_output)
-            expected = {"acceptedWeight": [12.5], "acceptedMode": [2.],
-                        "legacyLast": [3.], "cancelledFlag": [1.], "preservedWeight": [12.5]}
-            for name, values in expected.items():
-                wave = interactive_result.render_source().wave(name)
-                if wave is None or not np.array_equal(wave.data, values):
-                    raise RuntimeError("Frozen macro input/cancellation/rtGlobals result failed: " + name)
-            if (kinds != ["prompt", "file_open", "message", "prompt"]
-                    or not interactive_result.graph("InteractiveGraph").traces
-                    or interactive_result.graph("InteractiveGraph").style.axis_defaults.font_size != 12
-                    or "igor_input_resources" in interactive_result.current.environment
-                    or "igor_interactive" in interactive_result.current.environment
-                    or json.dumps(selected_text) in json.dumps(interactive_result.current.environment)
-                    or "igor_interactive" in json.loads(interactive_output.with_suffix(".json").read_text(encoding="utf-8"))):
-                raise RuntimeError("Frozen interactive macro capabilities/metadata/style checks failed")
+                    raise RuntimeError("Frozen Python worker did not finish")
+                if process.exitCode() != 0 or not procedure_output.exists():
+                    diagnostics = bytes(process.readAllStandardOutput().data()).decode("utf-8", errors="replace")
+                    diagnostics += bytes(process.readAllStandardError().data()).decode("utf-8", errors="replace")
+                    log_path = sandbox_root / "output/procedure.log"
+                    if log_path.exists():
+                        diagnostics += log_path.read_text(encoding="utf-8")
+                    raise RuntimeError(f"Frozen Python worker failed (exit {process.exitCode()}): {diagnostics}")
+                executed = load_graph_document(procedure_output)
+                if not executed.graph("PythonGraph").traces:
+                    raise RuntimeError("Frozen Python worker did not save canonical edits")
+                converted_graph = executed.graph("ConvertedGraph")
+                converted_wave = executed.render_source().wave("convertedWave")
+                if (converted_wave is None or not np.array_equal(converted_wave.data, [1., 3., 5., 7., 9.])
+                        or converted_graph.traces[0].line_width != 2
+                        or converted_graph.style.axis_defaults.tick != 2
+                        or converted_graph.style.axis_defaults.mirror != 1
+                        or converted_graph.traces[0].color_igor != (12000, 24000, 48000)):
+                    raise RuntimeError("Frozen converted Igor/runtime/public mds.command execution failed")
+                if "worker output OK" not in (sandbox_root / "output/procedure.log").read_text(encoding="utf-8"):
+                    raise RuntimeError("Frozen Python stdout was not captured")
+                if "converted Igor and public command OK" not in (sandbox_root / "output/procedure.log").read_text(encoding="utf-8"):
+                    raise RuntimeError("Frozen converted Igor completion was not captured")
+                prepared_wave = executed.render_source().wave("preparedTwice")
+                virtual_wave = executed.render_source().wave("virtual1")
+                if (prepared_wave is None or not np.array_equal(prepared_wave.data, [20., 40., 60.])
+                        or virtual_wave is None or not np.array_equal(virtual_wave.data, [5., 6., 7.])
+                        or not executed.graph("PreparedGraph").traces
+                        or "igor_input_resources" in executed.current.environment
+                        or "igor_input_resources" in load_graph_document(procedure_input).current.environment
+                        or virtual_output.exists()):
+                    raise RuntimeError("Frozen prepared-sidecar/isolated virtual text I/O workflow failed")
+
+                # An independent, explicitly interactive job exercises the actual
+                # broker/worker IPC in the frozen executable. A scripted trusted
+                # responder supplies generated values/text; no private samples or
+                # host files are mounted in the isolated procedure.
+                interactive_root = Path(temporary) / "interactive-sandbox"
+                (interactive_root / "input").mkdir(parents=True)
+                (interactive_root / "output").mkdir()
+                interactive_input = interactive_root / "input/input.mdsg"
+                interactive_output = interactive_root / "output/output.mdsg"
+                save_graph_document(interactive_input, restored)
+                (interactive_root / "input/procedure.json").write_text(
+                    json.dumps({"igor_interactive": True}), encoding="utf-8")
+                interactive_code = build_python(analyze_procedures(
+                    "#pragma rtGlobals=1\nFunction FrozenInteractive()\n"
+                    "Variable weight=10,mode=1\nString caption=\"Generated\"\n"
+                    'Prompt weight,"Weight (mg)"\nPrompt caption,"Sample label"\n'
+                    'Prompt mode,"Mode",popup,"First;Second;"\n'
+                    'DoPrompt "Frozen macro inputs",weight,caption,mode\n'
+                    "Make/D/N=1 acceptedWeight,acceptedMode\nacceptedWeight=weight\nacceptedMode=mode\n"
+                    "Variable handle\n"
+                    'Open/D/R/F="PRF text:*.prf;"/M="Select a *.prf file" handle\n'
+                    "LoadWave/G/D/N=dialogData S_fileName\n"
+                    "Display/N=InteractiveGraph dialogData1 vs dialogData0\n"
+                    'Label left "Signal"\nLabel bottom "Position"\n'
+                    'ModifyGraph tick=2,mirror=1,fSize=12,font="DejaVu Sans"\n'
+                    "Make/D/N=3 legacyWave\nlegacyWave=p+1\n"
+                    "Variable legacyValue=legacyWave[numpnts(legacyWave)]\n"
+                    "Make/D/N=1 legacyLast\nlegacyLast=legacyValue\n"
+                    'DoAlert 0,"Frozen interactive macro finished"\n'
+                    'DoPrompt "Frozen cancellation",weight\n'
+                    "Make/D/N=1 cancelledFlag,preservedWeight\ncancelledFlag=V_flag\npreservedWeight=weight\n"
+                    "End\n"
+                ), "FrozenInteractive", [])
+                (interactive_root / "input/procedure.py").write_text(interactive_code, encoding="utf-8")
+                selected_text = "Position Signal\r\n0 5\r\n1 7\r\n2 11\r\n"
+                selected_path = str(Path(temporary) / "explicit-selection" / "synthetic.prf")
+                session = ProcedureInteractionSession(interactive_root)
+                process = QProcess()
+                kinds: list[str] = []
+                try:
+                    process.start(sys.executable, [*worker_args, "--procedure-broker", str(interactive_root)])
+                    if not process.waitForStarted(10000):
+                        raise RuntimeError("Frozen interactive worker did not start")
+                    deadline = time.monotonic() + 90
+                    while not process.waitForFinished(50):
+                        application.processEvents()
+                        request = session.poll()
+                        if request is not None:
+                            kinds.append(request["kind"])
+                            if request["kind"] == "file_open":
+                                if request["payload"]["title"] != "Select a *.prf file":
+                                    raise RuntimeError("Frozen macro file-dialog title was not preserved")
+                                payload = {"resources": [{"name": "synthetic.prf", "path": selected_path,
+                                                           "text": selected_text}], "selected": selected_path}
+                                session.respond(request, {"status": "ok", "payload": payload})
+                            elif request["kind"] == "prompt":
+                                if request["payload"]["title"] == "Frozen cancellation":
+                                    session.respond(request, {"status": "cancelled", "payload": {}})
+                                else:
+                                    session.respond(request, {"status": "ok", "payload": {"values": {
+                                        "weight": 12.5, "caption": "Generated accepted", "mode": 1}}})
+                            elif request["kind"] == "message":
+                                session.respond(request, {"status": "ok", "payload": {"button": 0}})
+                            else:
+                                raise RuntimeError("Unexpected frozen macro interaction")
+                        if time.monotonic() > deadline:
+                            raise RuntimeError("Frozen interactive worker exceeded its smoke timeout")
+                    if process.exitCode() != 0 or not interactive_output.exists():
+                        log_path = interactive_root / "output/procedure.log"
+                        diagnostics = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
+                        diagnostics += bytes(process.readAllStandardOutput().data()).decode("utf-8", errors="replace")
+                        diagnostics += bytes(process.readAllStandardError().data()).decode("utf-8", errors="replace")
+                        raise RuntimeError("Frozen interactive worker failed: " + diagnostics)
+                finally:
+                    session.close()
+                    if process.state() != QProcess.ProcessState.NotRunning:
+                        process.kill()
+                        process.waitForFinished(1500)
+                interactive_result = load_graph_document(interactive_output)
+                expected = {"acceptedWeight": [12.5], "acceptedMode": [2.],
+                            "legacyLast": [3.], "cancelledFlag": [1.], "preservedWeight": [12.5]}
+                for name, values in expected.items():
+                    wave = interactive_result.render_source().wave(name)
+                    if wave is None or not np.array_equal(wave.data, values):
+                        raise RuntimeError("Frozen macro input/cancellation/rtGlobals result failed: " + name)
+                if (kinds != ["prompt", "file_open", "message", "prompt"]
+                        or not interactive_result.graph("InteractiveGraph").traces
+                        or interactive_result.graph("InteractiveGraph").style.axis_defaults.font_size != 12
+                        or "igor_input_resources" in interactive_result.current.environment
+                        or "igor_interactive" in interactive_result.current.environment
+                        or json.dumps(selected_text) in json.dumps(interactive_result.current.environment)
+                        or "igor_interactive" in json.loads(interactive_output.with_suffix(".json").read_text(encoding="utf-8"))):
+                    raise RuntimeError("Frozen interactive macro capabilities/metadata/style checks failed")
+            else:
+                from materials_data_studio.tools.procedure_sandbox import SandboxUnavailable, launch
+                try:
+                    launch(Path(temporary) / "unavailable-sandbox")
+                except SandboxUnavailable:
+                    pass
+                else:
+                    raise RuntimeError("Procedure broker allowed execution without an OS sandbox")
 
         document = CifDocument(Path("packaging-smoke.cif"), _SMOKE_CIF, _SMOKE_CIF)
         pattern = simulate_cif(
@@ -565,6 +583,7 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
                 raise RuntimeError("Frozen MP session round-trip failed")
             search.close()
             xrd.close()
+        procedure_result = "OK" if procedure_execution_available() else "UNAVAILABLE_ON_PLATFORM"
         report = (
             "OK\n"
             f"reflections={len(pattern.two_theta_deg)}\n"
@@ -574,6 +593,7 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
             "pxp_tables=OK\n"
             "h5xp_roundtrip=OK\n"
             "graph_exports=PNG,SVG,PDF,EPS,BMP,JPEG,TIFF\n"
+            "built_graph_previews=OK\n"
             "command_services=OK\n"
             "gui_command_recording=OK\n"
             "selection_properties_lifetime=OK\n"
@@ -583,22 +603,24 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
             "procedure_help=OK\n"
             "graph_manuals_and_help_menu=OK\n"
             "editor_send_to_igor=OK\n"
-            "python_worker_graph_and_stdout=OK\n"
-            "igor_conversion_and_isolated_runtime=OK\n"
-            "isolated_public_mds_command=OK\n"
-            "prepared_resource_sidecar=OK\n"
-            "virtual_text_io_no_host_write=OK\n"
-            "prepared_inputs_not_mdsg_metadata=OK\n"
-            "interactive_macro_file_prompt_message_cancel=OK\n"
-            "interactive_inputs_not_mdsg_metadata=OK\n"
-            "legacy_rtglobals_and_font_dependencies=OK\n"
+            f"python_worker_graph_and_stdout={procedure_result}\n"
+            f"igor_conversion_and_isolated_runtime={procedure_result}\n"
+            f"isolated_public_mds_command={procedure_result}\n"
+            f"prepared_resource_sidecar={procedure_result}\n"
+            f"virtual_text_io_no_host_write={procedure_result}\n"
+            f"prepared_inputs_not_mdsg_metadata={procedure_result}\n"
+            f"interactive_macro_file_prompt_message_cancel={procedure_result}\n"
+            f"interactive_inputs_not_mdsg_metadata={procedure_result}\n"
+            f"legacy_rtglobals_and_font_dependencies={procedure_result}\n"
             "axis_colors_tick_range=OK\n"
-            "python_appcontainer_no_network=OK\n"
+            f"python_appcontainer_no_network={procedure_result}\n"
             "local_cif_phase_search_match=OK\n"
             "phase_search_gui_session=OK\n"
             "qualx_sqlite_offline_reference_search=OK\n"
             "materials_project_offline_search_and_session=OK\n"
         )
+        if not procedure_execution_available():
+            report += "procedure_execution_disabled=OK\n"
     except Exception:
         report = "FAILED\n" + traceback.format_exc()
         success = False

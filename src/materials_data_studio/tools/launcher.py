@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +23,8 @@ from materials_data_studio.tools.windows import (
 if TYPE_CHECKING:
     from materials_data_studio.tools.graph_window import GraphEditorWindow
     from materials_data_studio.tools.pxp_window import PxpViewerWindow
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +91,7 @@ class ToolMenuManager(QObject):
 
     def open_tool(self, tool_id: str) -> ToolWindow:
         """Create another independent instance of an implemented tool."""
+        started = time.perf_counter()
         descriptor = self._descriptors[tool_id]
         # Keep utility windows as true top-level windows.  Passing the main
         # window as their native parent makes Windows minimize them together.
@@ -111,6 +116,7 @@ class ToolMenuManager(QObject):
         window.show()
         window.raise_()
         window.activateWindow()
+        LOGGER.info("Opened tool %s in %.3fs", tool_id, time.perf_counter() - started)
         return window
 
     def _activate_graph(self, window: GraphEditorWindow) -> None:

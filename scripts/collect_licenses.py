@@ -8,6 +8,7 @@ import json
 import re
 import shutil
 import sys
+import sysconfig
 import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -15,6 +16,7 @@ from pathlib import Path, PurePosixPath
 from scripts.prepare_corresponding_sources import ROOT, digest, source_manifest
 
 LEGAL = re.compile(r"(?:^|[._ -])(?:licen[cs]e(?:ref|s)?|copying|copyright|notice|authors)(?:[._ -]|$)", re.I)
+QT_MODULES = {"qtbase", "qtsvg", "qtwayland"}
 
 
 def legal_name(name: str) -> bool:
@@ -44,8 +46,12 @@ def source_notices(archive: Path):
 
 def collect(destination: Path) -> dict:
     destination.mkdir(parents=True, exist_ok=True)
-    for record in source_manifest():
-        projects = ("PySide6-Essentials",) if record["project"] in {"qtbase", "qtsvg"} else record["project"].split("+")
+    records = [
+        record for record in source_manifest()
+        if record["project"] != "velopack" or sys.platform == "win32"
+    ]
+    for record in records:
+        projects = ("PySide6-Essentials",) if record["project"] in QT_MODULES else record["project"].split("+")
         for project in projects:
             if metadata.version(project) != record["version"]:
                 raise ValueError(f"Corresponding-source version differs from build environment: {project}")
@@ -71,13 +77,15 @@ def collect(destination: Path) -> dict:
                           "notices": notices})
     python_license = Path(sys.base_prefix) / "LICENSE.txt"
     if not python_license.is_file():
+        python_license = Path(sysconfig.get_path("stdlib")) / "LICENSE.txt"
+    if not python_license.is_file():
         raise FileNotFoundError("CPython license was not found")
     (destination / "cpython").mkdir(exist_ok=True)
     shutil.copyfile(python_license, destination / "cpython/LICENSE.txt")
     qt_notices = 0
     other_notices = 0
-    for record in source_manifest():
-        qt_component = record["project"] in {"qtbase", "qtsvg", "pyside6-essentials+shiboken6"}
+    for record in records:
+        qt_component = record["project"] in QT_MODULES or record["project"] == "pyside6-essentials+shiboken6"
         archive = ROOT / "release_assets/sources" / record["name"]
         if not archive.is_file() or digest(archive) != record["sha256"]:
             raise ValueError("Run scripts/prepare_corresponding_sources.py before packaging")

@@ -78,8 +78,11 @@ def _read_arrays(
 
 def _safe_source_name(filename: str) -> str:
     """Return only the final source path component for a ZIP entry."""
-    name = Path(filename).name
-    return name or "source.bin"
+    # Source provenance can retain a path from another OS after a session is
+    # moved. ZIP members always use POSIX names, even on Windows.
+    name = PurePosixPath(filename.replace("\\", "/")).name
+    name = re.sub(r"[:\x00-\x1f]", "_", name)
+    return name if name not in {"", ".", ".."} else "source.bin"
 
 
 def save_session(

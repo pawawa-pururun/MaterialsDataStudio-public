@@ -6,11 +6,12 @@ from collections.abc import Sequence
 from functools import lru_cache
 from typing import Any
 
-import numpy as np
 from PySide6.QtCore import QEvent, QSize, Signal
 from PySide6.QtGui import QColor, QFontDatabase, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import QColorDialog, QComboBox, QLineEdit
 from shiboken6 import isValid
+
+from materials_data_studio.ui.preview_assets import pixels_icon, preview_icon
 
 
 @lru_cache(maxsize=1)
@@ -98,22 +99,17 @@ class ColorEdit(QLineEdit):
 
 
 def colormap_swatches(combo: QComboBox) -> None:
-    from matplotlib import colormaps
-
-    from materials_data_studio.tools.pxp_style import colormap
-
     combo.setIconSize(QSize(90, 16))
     combo.setMaxVisibleItems(12)
     combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
     for index in range(combo.count()):
-        palette = colormaps[colormap(combo.itemText(index))]
-        pixmap = QPixmap(90, 16)
-        painter = QPainter(pixmap)
-        for x, rgba in enumerate(palette(np.linspace(0, 1, 90))):
-            painter.setPen(QColor.fromRgbF(*rgba))
-            painter.drawLine(x, 0, x, 15)
-        painter.end()
-        combo.setItemIcon(index, QIcon(pixmap))
+        name = combo.itemText(index)
+        icon = preview_icon("colormap:" + name)
+        if icon is None:
+            from materials_data_studio.tools.preview_render import colormap_pixels
+
+            icon = pixels_icon(colormap_pixels(name))
+        combo.setItemIcon(index, icon)
 
 
 class StyleCombo(QComboBox):
@@ -157,7 +153,9 @@ class StyleCombo(QComboBox):
                 painter.setPen(QPen(self.palette().text().color(), 1.6, patterns[value]))
                 painter.drawLine(2, 9, 34, 9)
             elif self.kind == "marker" and value in glyphs:
-                painter.setFont(QFont("Segoe UI Symbol", 12))
+                font = QFont()
+                font.setPointSize(12)
+                painter.setFont(font)
                 painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, glyphs[value])
             painter.end()
             self.setItemIcon(index, QIcon(pixmap))

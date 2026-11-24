@@ -1,0 +1,30 @@
+{
+  "output_dir": "mpms-zfc-fc-output",
+  "recipe": {
+    "sources": {"run": {"path": ".test-tmp/graph-editor-baselines/solid-state-v2/cases/d03_mpms_zfc_fc/inputs/input.csv"}},
+    "columns": {
+      "temperature": {"source": "run", "column": "d03_temperature", "unit": "K"},
+      "field": {"source": "run", "column": "d03_field_oe", "unit": "Oe"},
+      "zfc": {"source": "run", "column": "d03_moment_zfc", "unit": "emu"},
+      "fc": {"source": "run", "column": "d03_moment_fc", "unit": "emu"}
+    },
+    "transforms": [
+      {"op": "molar_susceptibility", "name": "chi_zfc", "wave": "zfc", "field": "field", "sample_mass_mg": 10, "molar_mass_g_mol": 100},
+      {"op": "molar_susceptibility", "name": "chi_fc", "wave": "fc", "field": "field", "sample_mass_mg": 10, "molar_mass_g_mol": 100}
+    ],
+    "plot": {
+      "kind": "xy",
+      "panels": [{
+        "name": "susceptibility",
+        "x": {"label": "Temperature (K)"},
+        "y": {"label": "χₘ (emu/(Oe mol))"},
+        "traces": [
+          {"name": "ZFC", "x": "temperature", "y": "chi_zfc", "label": "ZFC"},
+          {"name": "FC", "x": "temperature", "y": "chi_fc", "label": "FC", "dash": "dashed"}
+        ],
+        "legend_notes": ["H = 1000 Oe", "Sample mass = 10 mg", "Molar mass = 100 g/mol"]
+      }]
+    },
+    "provenance": {"origin": "Synthetic MPMS baseline measurements"}
+  }
+}

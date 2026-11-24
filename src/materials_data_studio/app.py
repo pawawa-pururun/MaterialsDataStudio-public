@@ -5,15 +5,17 @@ from __future__ import annotations
 import logging
 import sys
 import traceback
+from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, Qt, QTimer
+from PySide6.QtGui import QFileOpenEvent, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from materials_data_studio.config import APP_NAME, ORGANIZATION_NAME
 from materials_data_studio.core.logging_config import configure_logging
 from materials_data_studio.core.recovery import find_recovery_candidates
+from materials_data_studio.core.resources import resource_root
 from materials_data_studio.core.session import load_session
 from materials_data_studio.core.settings import create_settings
 from materials_data_studio.ui.input_wheel_guard import install_input_wheel_guard
@@ -22,8 +24,48 @@ from materials_data_studio.ui.theme import apply_application_theme
 LOGGER = logging.getLogger(__name__)
 
 
+class DocumentOpenHandler(QObject):
+    """Queue Finder document events until the main window can accept imports."""
+
+    def __init__(self, application: QObject) -> None:
+        super().__init__(application)
+        self._pending: list[Path] = []
+        self._opener: Callable[[list[Path]], None] | None = None
+        self._scheduled = False
+        application.installEventFilter(self)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.FileOpen and isinstance(event, QFileOpenEvent):
+            filename = event.file() or event.url().toLocalFile()
+            if filename:
+                self.open_paths([Path(filename)])
+                event.accept()
+                return True
+        return super().eventFilter(watched, event)
+
+    def bind(self, opener: Callable[[list[Path]], None]) -> None:
+        self._opener = opener
+        self._schedule()
+
+    def open_paths(self, paths: list[Path]) -> None:
+        self._pending.extend(paths)
+        self._schedule()
+
+    def _schedule(self) -> None:
+        if self._opener is not None and self._pending and not self._scheduled:
+            self._scheduled = True
+            QTimer.singleShot(0, self._flush)
+
+    def _flush(self) -> None:
+        self._scheduled = False
+        if self._opener is not None and self._pending:
+            paths, self._pending = list(dict.fromkeys(self._pending)), []
+            self._opener(paths)
+
+
 def register_files_safely() -> None:
     from materials_data_studio.integrations.windows_files import register_document_types
+
     try:
         register_document_types()
     except OSError:
@@ -101,12 +143,21 @@ def main() -> int:
         from materials_data_studio.core.packaging_smoke import run_packaging_smoke_test
 
         return 0 if run_packaging_smoke_test(Path(sys.argv[flag_index + 1])) else 1
+    gui_smoke_flag = "--native-gui-smoke-test"
+    if gui_smoke_flag in sys.argv:
+        flag_index = sys.argv.index(gui_smoke_flag)
+        if flag_index + 1 >= len(sys.argv):
+            return 2
+        from materials_data_studio.core.gui_smoke import run_gui_smoke_test
+
+        return 0 if run_gui_smoke_test(Path(sys.argv[flag_index + 1])) else 1
     QCoreApplication.setApplicationName(APP_NAME)
     QCoreApplication.setOrganizationName(ORGANIZATION_NAME)
     log_path = configure_logging()
     logging.getLogger(__name__).info("Starting %s; log=%s", APP_NAME, log_path)
     instance = QApplication.instance()
     application = instance if isinstance(instance, QApplication) else QApplication(sys.argv)
+    file_opens = DocumentOpenHandler(application)
     install_input_wheel_guard()
     install_exception_hook()
     application.setApplicationDisplayName(APP_NAME)
@@ -115,8 +166,7 @@ def main() -> int:
     if theme not in {"light", "dark"}:
         theme = "light"
     apply_application_theme(application, theme)
-    resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
-    icon_path = resource_root / "resources" / "icons" / "materials-data-studio.ico"
+    icon_path = resource_root() / "resources" / "icons" / "materials-data-studio.ico"
     if icon_path.is_file():
         application.setWindowIcon(QIcon(str(icon_path)))
     paths = [Path(argument) for argument in sys.argv[1:] if not argument.startswith("-")]
@@ -125,13 +175,15 @@ def main() -> int:
     document_endpoint = None
     if reuse:
         from materials_data_studio.integrations.document_open import runtime_path
+
         document_endpoint = runtime_path()
-    if reuse and document_endpoint is not None and paths and "--new-instance" not in sys.argv:
+    if document_endpoint is not None and paths and "--new-instance" not in sys.argv:
         from materials_data_studio.integrations.document_open import forward_documents
+
         if forward_documents(paths, document_endpoint):
             return 0
     if paths and all(path.suffix.lower() in {".mdsg", ".pxp", ".h5xp"} for path in paths) and not find_recovery_candidates():
-        return run_graph_documents(application, paths, document_endpoint if reuse else None)
+        return run_graph_documents(application, paths, document_endpoint, file_opens)
     from materials_data_studio.ui.main_window import MainWindow
     window = MainWindow(_recover_interrupted_session(), defer_initial_module=bool(paths))
     if reuse and document_endpoint is not None and "--new-instance" not in sys.argv:
@@ -153,18 +205,22 @@ def main() -> int:
     from materials_data_studio.core.startup_metrics import mark
     mark("main_constructed")
     window.show()
-    from materials_data_studio.ui.updates import controller
+    file_opens.bind(window._import_dropped_paths)
     if sys.platform == "win32" and getattr(sys, "frozen", False):
+        from materials_data_studio.ui.updates import controller
+
         QTimer.singleShot(1500, lambda: controller().check(window, automatic=True))
-    if sys.platform == "win32" and getattr(sys, "frozen", False):
         # Let initial document import and the first paint complete before shell I/O.
         QTimer.singleShot(3000, register_files_safely)
     if paths:
-        QTimer.singleShot(0, lambda: window._import_dropped_paths(paths))
+        file_opens.open_paths(paths)
     return application.exec()
 
 
-def run_graph_documents(application, paths, document_endpoint=None):
+def run_graph_documents(
+    application: QApplication, paths: list[Path], document_endpoint: Path | None,
+    file_opens: DocumentOpenHandler,
+) -> int:
     """Open graph documents without first constructing an unused analysis shell."""
     from materials_data_studio.core.startup_metrics import mark
     from materials_data_studio.tools.graph_window import GraphEditorWindow
@@ -189,7 +245,8 @@ def run_graph_documents(application, paths, document_endpoint=None):
         from materials_data_studio.integrations.document_open import DocumentOpenServer
         server = DocumentOpenServer(document_endpoint, open_documents, application)
         application.aboutToQuit.connect(server.close)
-    QTimer.singleShot(0, lambda: open_documents(paths))
+    file_opens.bind(open_documents)
+    file_opens.open_paths(paths)
     if sys.platform == "win32" and getattr(sys, "frozen", False):
         from materials_data_studio.ui.updates import controller
         QTimer.singleShot(1500, lambda: controller().check(windows[0] if windows else None, automatic=True))

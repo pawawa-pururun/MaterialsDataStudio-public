@@ -33,11 +33,11 @@ code is retained in its source tree. No modifications to those upstream librarie
 are made by MDS. Notices included in upstream source may describe modules/examples
 that are not in the runtime application.
 
-The release's `SHA256SUMS` verifies both archives. Source downloads are provided
-with the binaries, not behind a paid support request. This repository is temporarily
-private during publication preparation; access to its private releases follows
-GitHub permissions. Do not distribute the prepared binary to recipients who cannot
-obtain its corresponding source.
+The release's `SHA256SUMS` verifies both archives. Supply these sources with
+distributed binaries so recipients can rebuild the exact components. Native
+Linux and macOS builds collect licenses from the pinned source archives and
+the build environment, including Qt Wayland and psutil notices.
+[Native build instructions](cross_platform_en.md)
 
 ## Rebuild MDS or replace a library
 

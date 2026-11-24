@@ -31,9 +31,14 @@ def test_packaging_smoke_exercises_lazy_dependencies(tmp_path: Path) -> None:
     assert "profile_points=" in text
     assert "mdsg_roundtrip=OK" in text
     assert "graph_exports=PNG,SVG,PDF,EPS,BMP,JPEG,TIFF" in text
+    assert "built_graph_previews=OK" in text
     assert "selection_properties_lifetime=OK" in text
-    assert "igor_conversion_and_isolated_runtime=OK" in text
-    assert "isolated_public_mds_command=OK" in text
+    if sys.platform == "win32":
+        assert "igor_conversion_and_isolated_runtime=OK" in text
+        assert "isolated_public_mds_command=OK" in text
+    else:
+        assert "procedure_execution_disabled=OK" in text
+        assert "python_appcontainer_no_network=UNAVAILABLE_ON_PLATFORM" in text
     assert "local_cif_phase_search_match=OK" in text
     assert "phase_search_gui_session=OK" in text
     assert "qualx_sqlite_offline_reference_search=OK" in text

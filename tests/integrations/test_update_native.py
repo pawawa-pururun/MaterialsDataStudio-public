@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows SDK")
 
 
 def test_native_full_download_notes_hash_and_graceful_restart_request(tmp_path):
-    import velopack
+    import velopack  # pyright: ignore[reportMissingImports]
 
     compiler = Path(os.environ["WINDIR"]) / "Microsoft.NET/Framework64/v4.0.30319/csc.exe"
     if not compiler.is_file():

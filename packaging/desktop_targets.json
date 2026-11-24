@@ -1,0 +1,4 @@
+[
+  {"platform": "linux", "machine": "x86_64", "suffix": "linux-x86_64.tar.gz"},
+  {"platform": "darwin", "machine": "arm64", "suffix": "macos-arm64.dmg"}
+]

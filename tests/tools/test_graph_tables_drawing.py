@@ -74,6 +74,7 @@ def test_drawing_tracks_exact_display_delta(
     x, y = box.x0 + box.width / 2, box.y0 + box.height / 2
     window.pointer_press(SimpleNamespace(button=1, dblclick=False, x=x, y=y, inaxes=artist.axes))
     assert window._drag is not None
+    assert window._drag["target"] == ("drawing", "0")
     initial = box.bounds
     original_draw = window.canvas.draw
     monkeypatch.setattr(window.canvas, "draw", lambda: pytest.fail("Full redraw during drag"))
@@ -91,6 +92,26 @@ def test_drawing_tracks_exact_display_delta(
         np.array(moved.coordinates[:2])
     ) - drawing_transform(ax, drawing).transform(np.array(drawing.coordinates[:2]))
     assert delta == pytest.approx([-20, 15])
+
+
+@pytest.mark.parametrize("layer,target", [("UserFront", ("drawing", "0")), ("UserBack", ("label", "left"))])
+def test_overlapping_drawing_and_label_pick_matches_paint_order(window: GraphEditorWindow, layer: str, target: tuple[str, str]) -> None:
+    assert window.editor is not None
+    graph = window.graph()
+    assert graph is not None
+    drawing = PxpDrawing("DrawText", (0.4, 0.5), text="overlapping text", layer=layer)
+    window.editor.edit_graph(replace(graph, drawings=(drawing,)), "Synthetic layered text")
+    window.canvas.draw()
+    artist = next(a for a, t in window.artist_targets.items() if t == ("drawing", "0"))
+    label = next(a for a, t in window.artist_targets.items() if t == ("label", "left"))
+    renderer = window.canvas.get_renderer()
+    label_box = label.get_window_extent(renderer)
+    drawing_box = artist.get_window_extent(renderer)
+    x, y = label_box.x0 + label_box.width / 2, label_box.y0 + label_box.height / 2
+    artist.set_position((x - drawing_box.x0 - drawing_box.width / 2, y - drawing_box.y0 - drawing_box.height / 2))
+    window.pointer_press(SimpleNamespace(button=1, dblclick=False, x=x, y=y, inaxes=artist.axes))
+    assert window._drag is not None and window._drag["target"] == target
+    window._drag = None
 
 
 def test_arrow_heads_are_filled(window: GraphEditorWindow) -> None:
