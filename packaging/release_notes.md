@@ -10,11 +10,9 @@
 
 ### Changes in v{{VERSION}}
 
-- Access the active Interactive Plot controls from View or the plot's right-click menu.
-- Enable Plot Cursor to mark curve intersections and show their Y values. XRD also shows 2θ and d beside the cursor's upper end. Cu Kα2 and Kβ Guides sits directly below Plot Cursor.
-- Open CIFs faster. Valid partial occupancies are accepted without a confirmation dialog.
-- Adjust particle size, isotropic strain and optional preferred orientation in simulated CIF profiles. Lattice lengths, angles and relative scale step by 0.01 Å, 0.1° and 0.1.
-- Reduce startup time by applying the palette and style sheet together and deferring plot-menu setup.
+- Enable Reverse Trace Order in View → Plot Options or the plot's right-click menu to bring the traces at the top of Datasets to the front. Dataset order, offsets and legend order are preserved.
+- Reduce the wait before showing a calculated CIF pattern by loading the diffraction library while the CIF editor is open and speeding up the occupancy preview calculation.
+- Preserve the selected hexagonal or rhombohedral axes when importing, editing and simulating trigonal CIFs. Live lattice previews and peak fitting accept four-index hexagonal reflections.
 - Update the English and Japanese application manuals.
 
 **Session compatibility.** Sessions saved with v0.15.2 or newer require a version that supports this format. Keep original copies when working with versions before v0.15.2.
@@ -52,11 +50,9 @@ MDS application code is MIT; dependencies and data retain their own licenses. MD
 
 ### v{{VERSION}}の変更点
 
-- アクティブなInteractive Plotの表示操作をViewとグラフの右クリックメニューから利用できます。
-- 縦カーソルと曲線の交点にマーカーとY値を表示します。XRDでは2θとd値をカーソル上端の横に表示し、Cu Kα2・Kβのガイド線はPlot Cursorの直下で切り替えられます。
-- CIFの読み込みを高速化し、有効な部分占有率の確認ダイアログを廃止しました。
-- CIFシミュレーションで粒径・等方歪み・選択配向を調整できます。格子長・角度・相対倍率の刻みはそれぞれ0.01 Å、0.1°、0.1です。
-- 起動時に外観設定をまとめて適用し、グラフメニューを使用時に準備することで起動を高速化しました。
+- View → Plot Optionsとグラフの右クリックメニューに「トレースの重ね順を反転」を追加しました。Datasetsの上にあるトレースを手前に描きます。データの並び、オフセット、凡例の順序は維持します。
+- CIFエディターを開いている間に回折計算ライブラリを読み込み、占有率プレビューの計算も高速化しました。
+- 三方晶CIFの六方軸・菱面体軸を、読み込み・編集・シミュレーションで保持します。格子定数のライブプレビューとピークフィッティングは六方軸の4指数表記に対応しました。
 - 日本語・英語のアプリマニュアルを更新しました。
 
 **セッションの互換性。** v0.15.2以降で保存したセッションは、この形式に対応する版で開いてください。v0.15.2より前の版を併用する場合は、元ファイルを保管してください。
