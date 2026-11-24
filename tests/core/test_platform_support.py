@@ -77,17 +77,22 @@ def test_non_windows_procedures_are_disabled_before_snapshot_or_process(qtbot) -
         window.close()
 
 
-def test_diagnostic_redaction_covers_native_paths_and_preserves_urls(tmp_path: Path) -> None:
-    raw = ('Windows C:\\Users\\example\\lab file.dat\n'
-           'Linux /home/example/lab file.dat\n'
-           'macOS "/Users/example/lab file.dat"\n'
-           'https://example.org/help/manual\n')
-    (tmp_path / "materials-data-studio.log").write_text(raw, encoding="utf-8")
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"], ids=["lf", "crlf"])
+def test_diagnostic_redaction_covers_native_paths_and_preserves_urls(
+    tmp_path: Path, newline: bytes
+) -> None:
+    raw = (
+        b"Windows C:\\Users\\example\\lab file.dat\n"
+        b"Linux /home/example/lab file.dat\n"
+        b'macOS "/Users/example/lab file.dat"\n'
+        b"https://example.org/help/manual\n"
+    ).replace(b"\n", newline)
+    (tmp_path / "materials-data-studio.log").write_bytes(raw)
     redacted = recovery.diagnostic_logs(log_directory=tmp_path)["materials-data-studio.log"].decode()
     assert "example/lab" not in redacted and "example\\lab" not in redacted
     assert redacted.count("<local path>") == 3
     assert "https://example.org/help/manual" in redacted
-    assert recovery.diagnostic_logs(redact_paths=False, log_directory=tmp_path)["materials-data-studio.log"].decode() == raw
+    assert recovery.diagnostic_logs(redact_paths=False, log_directory=tmp_path)["materials-data-studio.log"] == raw
 
 
 def test_process_creation_time_and_reused_pid_recovery(tmp_path: Path, monkeypatch) -> None:
