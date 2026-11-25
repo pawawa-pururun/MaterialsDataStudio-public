@@ -804,6 +804,8 @@ onto the main window. IPF opens a conversion preview, never automatic execution.
 Use **File > Edit current plot in Graph Editor** or the graph-and-pencil toolbar
 icon to transfer the current main plot without requiring Igor Pro.
 
+Use **Graph > Create Graph from Template…** to create an editable figure from measurement files or existing waves. [Templates and instructions](graph_viewer_manual_en.md#create-a-graph-from-a-template)
+
 For all detailed instructions, open the viewer's **Help > Graph Viewer Manual (English)**
 (F1) or its Japanese manual. Python, allowed modules and the mds API are under
 **Help > Python / mds Help…** in the same viewer.

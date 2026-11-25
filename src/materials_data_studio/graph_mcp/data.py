@@ -13,8 +13,8 @@ from numpy.typing import NDArray
 from materials_data_studio.graph_mcp.inputs import (
     MAX_CELLS,
     Array,
+    InputFiles,
     PlotError,
-    Workspace,
     finite,
     load_table,
     paired,
@@ -54,6 +54,7 @@ _BINARY = {
 class Data:
     waves: dict[str, PxpWave] = field(default_factory=dict)
     values_count: int = 0
+    folder: str = ""
 
     def store(self, name: str, values: NDArray[Any], unit: str, note: Any = None) -> str:
         if name in self.waves:
@@ -63,7 +64,8 @@ class Data:
             raise PlotError(
                 "data_too_large", name, "The figure exceeds eight million stored values."
             )
-        wave = make_wave(name, values)
+        path = f"{self.folder}:{name.removeprefix('root:')}" if self.folder else name
+        wave = make_wave(path, values)
         self.waves[name] = replace(
             wave,
             data_units=unit,
@@ -99,7 +101,7 @@ class Data:
             )
 
 
-def load_data(workspace: Workspace, recipe: FigureRecipe) -> Data:
+def load_data(workspace: InputFiles, recipe: FigureRecipe) -> Data:
     unknown = [
         (name, column.source)
         for name, column in recipe.columns.items()
@@ -135,11 +137,11 @@ def load_data(workspace: Workspace, recipe: FigureRecipe) -> Data:
                 },
             )
     for transform in recipe.transforms:
-        _derive(data, transform)
+        derive(data, transform)
     return data
 
 
-def _derive(data: Data, transform: Transform) -> None:
+def derive(data: Data, transform: Transform) -> None:
     raw = data.numeric(transform.wave)
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         result, unit, required = _compute(data, transform, raw)

@@ -396,6 +396,7 @@ def install_menus(window: GraphEditorWindow) -> None:
     from materials_data_studio.tools.graph_anova_power import show_power
     statistics_menu.addAction("ANOVA Power…", lambda: show_power(window))
     graph = window.menuBar().addMenu("Graph")
+    graph.addAction(window.template_action)
     for title, operation in (("Load General Text…", "load"), ("Make Wave…", "make"), ("Edit Wave…", "edit"),
         ("Duplicate Wave…", "duplicate"), ("Rename Wave…", "rename"), ("Delete Wave…", "delete"),
         ("Change Wave Scaling…", "scaling"), ("Redimension Wave…", "redimension"), ("Insert Points…", "insert"),

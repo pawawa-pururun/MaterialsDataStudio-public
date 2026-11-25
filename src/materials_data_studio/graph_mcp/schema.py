@@ -279,11 +279,14 @@ class XrdMap(Request):
     color_limits: Limits | None = None
 
 
+FigurePlot = Annotated[XYPlot | XrdStack | XrdRietveld | XrdMap, Field(discriminator="kind")]
+
+
 class FigureRecipe(Request):
     sources: dict[Id, Source] = Field(min_length=1, max_length=256)
     columns: dict[Id, Column] = Field(min_length=1, max_length=512)
     transforms: list[Transform] = Field(default_factory=list, max_length=128)
-    plot: Annotated[XYPlot | XrdStack | XrdRietveld | XrdMap, Field(discriminator="kind")]
+    plot: FigurePlot
     provenance: dict[Id, Text | FiniteFloat] = Field(
         default_factory=dict,
         max_length=32,

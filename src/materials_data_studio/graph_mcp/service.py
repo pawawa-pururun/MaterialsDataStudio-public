@@ -12,10 +12,11 @@ from typing import Any
 
 import numpy as np
 
-from materials_data_studio.graph_mcp.data import load_data
+from materials_data_studio.graph_mcp.data import Data, load_data
 from materials_data_studio.graph_mcp.graphs import xy_graphs
-from materials_data_studio.graph_mcp.inputs import PlotError, Workspace
+from materials_data_studio.graph_mcp.inputs import InputFiles, PlotError, Workspace
 from materials_data_studio.graph_mcp.schema import (
+    FigurePlot,
     FigureRecipe,
     ImageFormat,
     XrdMap,
@@ -36,8 +37,11 @@ from materials_data_studio.version import __version__
 
 
 def build_figure(workspace: Workspace, recipe: FigureRecipe) -> tuple[str, EditableGraphDocument]:
-    data = load_data(workspace, recipe)
-    plot = recipe.plot
+    return build_document(workspace, load_data(workspace, recipe), recipe.plot)
+
+
+def build_document(workspace: InputFiles, data: Data, plot: FigurePlot) -> tuple[str, EditableGraphDocument]:
+    """Build the same editable figure from recipe files or interactive column bindings."""
     if isinstance(plot, XYPlot):
         name, graphs = xy_graphs(data, plot)
     elif isinstance(plot, XrdStack):

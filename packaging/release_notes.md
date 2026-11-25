@@ -10,6 +10,7 @@
 
 ### Changes in v{{VERSION}}
 
+- Use Graph → Create Graph from Template to turn measurement files or existing waves into editable XY, XRD, MPMS or PPMS figures.
 - Enable Reverse Trace Order in View → Plot Options or the plot's right-click menu to bring the traces at the top of Datasets to the front. Dataset order, offsets and legend order are preserved.
 - Reduce the wait before showing a calculated CIF pattern by loading the diffraction library while the CIF editor is open and speeding up the occupancy preview calculation.
 - Preserve the selected hexagonal or rhombohedral axes when importing, editing and simulating trigonal CIFs. Live lattice previews and peak fitting accept four-index hexagonal reflections.
@@ -50,6 +51,7 @@ MDS application code is MIT; dependencies and data retain their own licenses. MD
 
 ### v{{VERSION}}の変更点
 
+- Graph → テンプレートから作図で、測定ファイルや読み込み済みのwaveから編集可能なXY・XRD・MPMS・PPMSの図を作れます。
 - View → Plot Optionsとグラフの右クリックメニューに「トレースの重ね順を反転」を追加しました。Datasetsの上にあるトレースを手前に描きます。データの並び、オフセット、凡例の順序は維持します。
 - CIFエディターを開いている間に回折計算ライブラリを読み込み、占有率プレビューの計算も高速化しました。
 - 三方晶CIFの六方軸・菱面体軸を、読み込み・編集・シミュレーションで保持します。格子定数のライブプレビューとピークフィッティングは六方軸の4指数表記に対応しました。

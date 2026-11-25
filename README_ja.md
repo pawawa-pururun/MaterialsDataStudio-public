@@ -41,7 +41,7 @@ Windowsのインストーラ導入版では、起動時に更新を確認し、�
 | XRD | text/XY/DAT/RASX/CIF読込、Cu Kα1/2シミュレーションとfit、arPLS背景、格子調整、全パターン・Le Bail fit、ローカル相検索 |
 | MPMS | ZFC/FC・磁場別ブランチ、ブランチ別の表示・スタイル・解析、M–T/M–H、Curie–Weiss fit |
 | PPMS | 比熱、低温・Debye–Einstein fit、輸送・VRH、Bridge／ブランチ整理、Custom Plot |
-| Graph Editor | wave・table、XY・画像・複数軸、注記・描画、fit・統計、PXP/H5XP読込、H5XP出力とSend to Igor |
+| Graph Editor | 作図テンプレート、wave・table、XY・画像・複数軸、注記・描画、fit・統計、PXP/H5XP読込、H5XP出力とSend to Igor |
 | 共通機能 | 元データを保持するセッション、Undo/Redo、日英UI・マニュアル、ライト／ダーク、データとベクター／画像出力 |
 
 Igor互換操作は文書化した範囲に対応します。MDSは独立したアプリであり、Igor Proの代替を保証する製品や公認製品ではありません。

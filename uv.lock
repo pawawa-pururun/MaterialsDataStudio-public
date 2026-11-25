@@ -926,6 +926,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pillow" },
     { name = "psutil" },
+    { name = "pydantic" },
     { name = "pymatgen" },
     { name = "pyqtgraph" },
     { name = "pyside6-essentials" },
@@ -948,7 +949,6 @@ dev = [
 mcp = [
     { name = "anyio" },
     { name = "mcp" },
-    { name = "pydantic" },
     { name = "pypdf" },
 ]
 mp-builder = [
@@ -972,7 +972,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=13.0.0,<14" },
     { name = "psutil", specifier = ">=6,<8" },
     { name = "pyarrow", marker = "extra == 'mp-builder'", specifier = ">=19,<27" },
-    { name = "pydantic", marker = "extra == 'mcp'", specifier = ">=2.11,<3" },
+    { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "pyinstaller", marker = "extra == 'dev'", specifier = ">=6.11,<7" },
     { name = "pymatgen", specifier = ">=2025.1" },
     { name = "pypdf", marker = "extra == 'mcp'", specifier = ">=6,<7" },
