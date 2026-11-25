@@ -64,7 +64,8 @@ class InstallationRequired(RuntimeError):
 def installed_manager(base: str = FEED, *, downloading: bool = False) -> Any:
     if sys.platform != "win32" or not getattr(sys, "frozen", False):
         raise InstallationRequired
-    import velopack
+    # The Windows-only dependency is absent from Linux/macOS build environments.
+    import velopack  # pyright: ignore[reportMissingImports]
 
     try:
         manager = velopack.UpdateManager(

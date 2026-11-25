@@ -11,6 +11,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
 
+from materials_data_studio.core.capabilities import procedure_execution_available
 from materials_data_studio.tools.command_engine import CommandEngine
 from materials_data_studio.tools.command_services import DocumentServices
 from materials_data_studio.tools.graph_document import load_graph_document, save_graph_document
@@ -348,6 +349,7 @@ def test_legacy_label_layout_migration_without_renderer(engine, tmp_path):
     assert load_graph_document(path).graph("G") == restored.graph("G")
 
 
+@pytest.mark.skipif(not procedure_execution_available(), reason="No OS sandbox backend on this platform")
 def test_new_context_in_isolated_worker(engine, tmp_path):
     from materials_data_studio.tools.procedure_sandbox import launch
     (tmp_path/"input").mkdir()

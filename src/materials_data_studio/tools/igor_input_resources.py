@@ -65,6 +65,16 @@ def read_input_files(paths: list[Path], existing: list[dict[str, str]], *,
         if len(path.name) > 1024 or len(absolute) > 4096:
             raise ValueError("Input file name or path is too long")
         previous = resources.get(absolute.casefold())
+        if previous is not None and previous["path"] != absolute:
+            try:
+                same_file = Path(previous["path"]).samefile(path)
+            except OSError:
+                same_file = False
+            if not same_file:
+                raise ValueError(
+                    "Selected input paths differ only by letter case. Rename one file "
+                    "before preparing inputs; Igor virtual paths are case-insensitive."
+                )
         if previous is None and len(resources) >= 1000:
             raise ValueError("Prepared inputs are limited to 1000 text files")
         available = MAX_INPUT_BYTES - total + (

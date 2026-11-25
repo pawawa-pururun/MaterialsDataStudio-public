@@ -12,7 +12,7 @@ import numpy as np
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QColorDialog, QInputDialog, QMenu, QMessageBox
 
-from materials_data_studio.tools.graph_actions import graph_action, wave_action
+from materials_data_studio.tools.graph_actions import graph_action, show_analysis, wave_action
 from materials_data_studio.tools.graph_export import data_columns
 from materials_data_studio.tools.graph_fit import MODELS
 from materials_data_studio.tools.graph_symbols import style_icon, visual_choices
@@ -276,7 +276,6 @@ def add_quick_fit(menu: QMenu, window: GraphEditorWindow, trace_name: str = "") 
     quick.addSeparator()
     for key in ("poly2d", "gauss2d"):
         title = "poly2D…" if key == "poly2d" else "Gauss2D…"
-        from materials_data_studio.tools.graph_analysis_forms import show_analysis
         quick.addAction(title, lambda _checked=False, kind=key: show_analysis(window, kind, statistical=False))
     quick.addSeparator()
     for title, attribute, default in (("Fit Between Cursors / Selected Region", "fit_between_cursors", True),

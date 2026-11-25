@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -39,7 +40,7 @@ class IgorLaunchError(RuntimeError):
 
 
 class IgorLauncher:
-    """Open an H5XP using a configured executable or Windows association."""
+    """Open an H5XP using an executable, macOS app or native association."""
 
     def __init__(
         self,
@@ -55,6 +56,9 @@ class IgorLauncher:
         try:
             if configured_executable.strip():
                 executable = Path(configured_executable.strip())
+                if sys.platform == "darwin" and executable.suffix.lower() == ".app" and executable.is_dir():
+                    self._popen(["/usr/bin/open", "-a", str(executable), str(experiment)], close_fds=True)
+                    return
                 if not executable.exists() or not executable.is_file():
                     raise IgorLaunchError(
                         f"The configured Igor Pro executable was not found: {executable}",
@@ -63,6 +67,9 @@ class IgorLauncher:
                 self._popen([str(executable), str(experiment)], close_fds=True)
                 return
             opener = self._association_opener or getattr(os, "startfile", None)
+            if self._association_opener is None and sys.platform == "darwin":
+                self._popen(["/usr/bin/open", str(experiment)], close_fds=True)
+                return
             if opener is None:
                 raise IgorLaunchError(
                     "No Igor Pro executable is configured and this platform has no file association launcher.",

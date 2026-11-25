@@ -389,6 +389,8 @@ class MeasurementTree(QWidget):
         def descendants(parent: QTreeWidgetItem) -> None:
             for index in range(parent.childCount()):
                 child = parent.child(index)
+                if child is None:
+                    continue
                 child.setCheckState(0, item.checkState(0))
                 value = self._dataset(child)
                 if value:

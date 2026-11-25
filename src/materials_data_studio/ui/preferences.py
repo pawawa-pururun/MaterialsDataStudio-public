@@ -304,7 +304,7 @@ class PreferencesDialog(QDialog):
         executable_row = QHBoxLayout()
         self.igor_executable = QLineEdit(igor_executable)
         self.igor_executable.setPlaceholderText(
-            "Not configured — use the Windows .h5xp file association"
+            "Not configured — use the system .h5xp file association"
         )
         self.igor_executable.setClearButtonEnabled(True)
         browse = QPushButton("Browse…")
@@ -313,8 +313,10 @@ class PreferencesDialog(QDialog):
         executable_row.addWidget(browse)
         form.addRow("Igor executable", executable_row)
         note = QLabel(
-            "Select Igor64.exe from the Igor Pro 10 installation. If left empty, "
-            "Send to Igor Pro uses the Windows association for .h5xp files."
+            "Select the Igor Pro executable, or its .app bundle on macOS. "
+            "If left empty, Send to Igor Pro uses the Windows or macOS .h5xp "
+            "association. On Linux, configure a compatible launcher explicitly; "
+            "H5XP export remains available without Igor Pro."
         )
         note.setWordWrap(True)
         form.addRow(note)
@@ -344,15 +346,39 @@ class PreferencesDialog(QDialog):
             note.setWordWrap(True)
             file_layout.addWidget(note)
             layout.addWidget(files)
+        elif sys.platform.startswith("linux"):
+            from materials_data_studio.integrations.linux_files import register_document_types
+            files = QGroupBox("MDS document files (.mdss / .mdsg)")
+            file_layout = QVBoxLayout(files)
+            register = QPushButton("Register MDS document types")
+            def register_linux_files() -> None:
+                try:
+                    register_document_types()
+                    QMessageBox.information(self, "File associations", "MDS is registered. Choose it in your file manager's Open With menu.")
+                except (OSError, ValueError) as exc:
+                    QMessageBox.warning(self, "File associations", str(exc))
+            register.clicked.connect(register_linux_files)
+            file_layout.addWidget(register)
+            layout.addWidget(files)
         layout.addStretch(1)
         self.plot_tabs.addTab(page, "Applications")
 
     def _browse_igor_executable(self) -> None:
+        import sys
+        if sys.platform == "darwin":
+            name = QFileDialog.getExistingDirectory(
+                self, "Select Igor Pro .app bundle", self.igor_executable.text() or "/Applications",
+                QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog,
+            )
+            if name:
+                self.igor_executable.setText(name)
+            return
         name, _selected_filter = QFileDialog.getOpenFileName(
             self,
             "Select Igor Pro Executable",
             self.igor_executable.text(),
-            "Igor Pro (Igor64.exe Igor.exe);;Applications (*.exe);;All files (*)",
+            "Igor Pro (Igor64.exe Igor.exe);;Applications (*.exe);;All files (*)"
+            if sys.platform == "win32" else "All files (*)",
         )
         if name:
             self.igor_executable.setText(name)

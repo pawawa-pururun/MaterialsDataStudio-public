@@ -10,11 +10,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / ".publication/MaterialsDataStudio"
 ROOT_FILES = {"AGENTS.md", "README.md", "README_ja.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "SECURITY.md",
-              ".gitignore", ".gitattributes", "pyproject.toml", "uv.lock", "pyright-tests.json"}
+              ".gitignore", ".gitattributes", "pyproject.toml", "uv.lock", "pyright-tests.json",
+              ".agents/skills/materials-xrd-figures/SKILL.md", ".agents/skills/materials-solid-state-figures/SKILL.md"}
 DOC_FILES = {"index.md", "installation.md", "installation_ja.md", "reference_databases.md", "reference_databases_ja.md",
              "building_and_licenses.md", "building_and_licenses_ja.md", "user_manual.md", "user_manual_en.md",
              "graph_viewer_manual.md", "graph_viewer_manual_en.md", "command_reference.md", "screenshot_plan.md",
-             "manual_build_instructions.md", "phase_search/materials_project.md"}
+             "manual_build_instructions.md", "phase_search/materials_project.md",
+             "cross_platform.md", "cross_platform_en.md", "graph_mcp/README.md", "graph_mcp/README_ja.md",
+             "graph_mcp/examples/xrd-stack.json", "graph_mcp/examples/mpms-zfc-fc.json", "graph_mcp/examples/ppms-cp.json",
+             "graph_editor_baselines/README.md", "graph_editor_baselines/build_review_pdf.py",
+             "graph_editor_baselines/exploratory-v1/reproducibility/build_suite.py",
+             "graph_editor_baselines/solid-state-v2/reproducibility/build_domain_baseline.py",
+             "graph_editor_baselines/solid-state-v2/reproducibility/replay_domain_case.py"}
 FIXTURES = {"docs/igor_audit/evidence/mds/native_wave_reference.json", "docs/igor_audit/evidence/igor/rainbow.tsv",
             "docs/igor_audit/evidence/igor/top-axis.txt", "docs/igor_audit/evidence/igor/mixed.txt",
             "docs/igor_audit/evidence/igor/analysis-info.txt", "docs/igor_audit/evidence/igor/analysis-waves.tsv",

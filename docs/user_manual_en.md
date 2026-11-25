@@ -93,6 +93,16 @@ On installed Windows copies, MDS checks for updates at startup and shows release
 
 Versions before 0.15.0 do not have this feature: install the latest version once with Setup. Source/portable copies also use Setup. Settings, saved files and reference databases are retained; MDS does not send measurement data when checking for updates.
 
+### Linux and macOS builds
+
+On Linux, extract the complete application folder and run `./MaterialsDataStudio`.
+Run `./MaterialsDataStudio --register-file-types` or use Preferences → Applications
+to register the launcher and document types for your account.
+On Apple Silicon, copy the app from the DMG to Applications.
+Both platforms support analysis, editing and exports, as well as viewing, editing
+and converting Procedure source. Python Procedure execution uses Windows isolation.
+See [native build requirements](cross_platform_en.md).
+
 ### 1.2 Starting from a development checkout
 
 Install Python 3.12 and `uv`, then run at the repository root:

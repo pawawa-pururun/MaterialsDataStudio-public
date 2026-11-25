@@ -17,7 +17,7 @@ def review_diagnostics(parent):
     dialog.resize(950, 650)
     layout = QVBoxLayout(dialog)
     layout.addWidget(QLabel("No sessions or measurement arrays are included. Review logs for sample identifiers before sharing."))
-    redact = QCheckBox("Redact local Windows paths")
+    redact = QCheckBox("Redact local paths")
     redact.setChecked(True)
     layout.addWidget(redact)
     preview = QPlainTextEdit()

@@ -15,6 +15,7 @@ from typing import Any, cast
 import numpy as np
 from matplotlib import colors
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 from PIL import Image
 from PySide6.QtCore import Qt
@@ -80,6 +81,7 @@ class GraphicsSettings:
     dpi: float = 300
     color: bool = True
     transparent: bool = False
+    rasterize_meshes: bool = False
 
 
 def save_graphics(path: Path, document: EditableGraphDocument, name: str,
@@ -110,6 +112,9 @@ def save_graphics(path: Path, document: EditableGraphDocument, name: str,
         state.layout = _monochrome(state.layout)
         rendered = replace(document, current=state)
     renderer.render(figure, rendered, name)
+    if settings.rasterize_meshes and settings.format in {"pdf", "svg"}:
+        for mesh in figure.findobj(match=QuadMesh):
+            mesh.set_rasterized(True)
     if not settings.color:
         for item in figure.findobj():
             artist: Any = item

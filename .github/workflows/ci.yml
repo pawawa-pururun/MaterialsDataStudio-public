@@ -1,8 +1,13 @@
 name: CI
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to test
+        type: choice
+        options: [windows, linux, macos]
+        default: linux
 permissions:
   contents: read
 concurrency:
@@ -11,6 +16,7 @@ concurrency:
 jobs:
   test:
     name: test (${{ matrix.python }})
+    if: github.event_name == 'pull_request' || inputs.platform == 'windows'
     runs-on: windows-2022
     timeout-minutes: 35
     env:
@@ -31,7 +37,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --extra dev --extra mcp
       - run: uv run python -m scripts.publication_check --secrets
       - run: uv run pytest --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 --maxfail=1 -q
         env:
@@ -41,3 +47,45 @@ jobs:
       - run: uv run pyright --project pyright-tests.json
       - run: uv run python scripts/build_manual.py
       - run: uv run python scripts/check_visual_performance.py
+
+  native-tests:
+    name: Native tests (${{ inputs.platform || 'linux' }})
+    if: github.event_name == 'pull_request' || inputs.platform == 'linux' || inputs.platform == 'macos'
+    runs-on: ${{ inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-26.04' }}
+    timeout-minutes: 60
+    env:
+      UV_PYTHON: '3.12'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.8.15'
+          enable-cache: true
+          cache-suffix: ${{ runner.os == 'Linux' && 'ubuntu-26.04' || 'macos-latest' }}
+      - name: Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Verify Apple Silicon runner
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = arm64
+      - run: uv sync --frozen --extra dev --extra mcp
+      - run: uv run --no-sync python -m scripts.publication_check
+      - name: Linux tests and coverage
+        if: runner.os == 'Linux'
+        run: uv run --no-sync pytest -q --maxfail=1 --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 -o faulthandler_timeout=120
+      - name: macOS tests
+        if: runner.os == 'macOS'
+        run: uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120
+      - name: Linux lint, type checks and performance
+        if: runner.os == 'Linux'
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync pyright
+          uv run --no-sync pyright --project pyright-tests.json
+          uv run --no-sync python scripts/check_visual_performance.py --report .test-tmp/visual-performance.json

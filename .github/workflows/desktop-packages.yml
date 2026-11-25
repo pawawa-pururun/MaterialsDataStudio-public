@@ -1,0 +1,115 @@
+name: Native desktop packages
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: Platform to package (automatic callers use Linux)
+        type: string
+        default: linux
+    secrets:
+      MDS_MAC_CERTIFICATE_P12_BASE64:
+        required: false
+      MDS_MAC_CERTIFICATE_PASSWORD:
+        required: false
+      MDS_MAC_SIGN_IDENTITY:
+        required: false
+      MDS_MAC_NOTARY_APPLE_ID:
+        required: false
+      MDS_MAC_NOTARY_TEAM_ID:
+        required: false
+      MDS_MAC_NOTARY_PASSWORD:
+        required: false
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to package (macOS is manual only)
+        type: choice
+        options: [linux, macos]
+        default: linux
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-packages-${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  package:
+    if: inputs.platform == 'linux' || (github.event_name == 'workflow_dispatch' && inputs.platform == 'macos')
+    runs-on: ${{ inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-22.04' }}
+    timeout-minutes: 60
+    env:
+      UV_PYTHON: "3.12"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+      DESKTOP_TARGET: ${{ inputs.platform == 'macos' && 'macos-arm64' || 'linux-x86_64' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.8.15"
+          enable-cache: true
+          cache-suffix: ${{ runner.os == 'Linux' && 'ubuntu-22.04' || 'macos-latest' }}
+      - name: Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Verify Apple Silicon runner
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = arm64
+      - name: Prepare macOS signing keychain
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MDS_MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MDS_MAC_CERTIFICATE_P12_BASE64 }}
+          MDS_MAC_CERTIFICATE_PASSWORD: ${{ secrets.MDS_MAC_CERTIFICATE_PASSWORD }}
+          MDS_MAC_SIGN_IDENTITY: ${{ secrets.MDS_MAC_SIGN_IDENTITY }}
+          MDS_MAC_NOTARY_APPLE_ID: ${{ secrets.MDS_MAC_NOTARY_APPLE_ID }}
+          MDS_MAC_NOTARY_TEAM_ID: ${{ secrets.MDS_MAC_NOTARY_TEAM_ID }}
+          MDS_MAC_NOTARY_PASSWORD: ${{ secrets.MDS_MAC_NOTARY_PASSWORD }}
+        run: |
+          if [ -z "$MDS_MAC_CERTIFICATE_P12_BASE64" ]; then exit 0; fi
+          test -n "$MDS_MAC_SIGN_IDENTITY"
+          task_keychain="$RUNNER_TEMP/mds-signing.keychain-db"
+          task_password=$(uuidgen)
+          printf '%s' "$MDS_MAC_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/mds-signing.p12"
+          security create-keychain -p "$task_password" "$task_keychain"
+          security set-keychain-settings -lut 21600 "$task_keychain"
+          security unlock-keychain -p "$task_password" "$task_keychain"
+          security import "$RUNNER_TEMP/mds-signing.p12" -P "$MDS_MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$task_keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$task_password" "$task_keychain"
+          security list-keychains -d user -s "$task_keychain"
+          if [ -n "$MDS_MAC_NOTARY_APPLE_ID" ]; then
+            xcrun notarytool store-credentials mds-notary --apple-id "$MDS_MAC_NOTARY_APPLE_ID" --team-id "$MDS_MAC_NOTARY_TEAM_ID" --password "$MDS_MAC_NOTARY_PASSWORD" --keychain "$task_keychain"
+            echo "MDS_MAC_NOTARY_PROFILE=mds-notary" >> "$GITHUB_ENV"
+          fi
+      - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync python -m scripts.publication_check
+      - name: Build native application and run frozen smoke checks
+        env:
+          MDS_MAC_SIGN_IDENTITY: ${{ runner.os == 'macOS' && secrets.MDS_MAC_SIGN_IDENTITY || '' }}
+        run: uv run --no-sync python scripts/build_desktop.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: MaterialsDataStudio-${{ env.DESKTOP_TARGET }}
+          path: release_assets/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: desktop-diagnostics-${{ env.DESKTOP_TARGET }}
+          path: .test-tmp/desktop-build/*smoke.txt
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove temporary signing material
+        if: always() && runner.os == 'macOS'
+        run: |
+          if [ -f "$RUNNER_TEMP/mds-signing.keychain-db" ]; then security delete-keychain "$RUNNER_TEMP/mds-signing.keychain-db"; fi
+          rm -f "$RUNNER_TEMP/mds-signing.p12"

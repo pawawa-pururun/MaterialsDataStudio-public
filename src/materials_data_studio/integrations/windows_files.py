@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from materials_data_studio.core.resources import resource_root
+
 APP_REGISTRATION = r"Software\MaterialsDataStudio\Capabilities"
 DOCUMENT_TYPES = {
     ".mdss": ("MaterialsDataStudio.Session", "Materials Data Studio Session", "mdss.ico"),
@@ -17,7 +19,7 @@ DOCUMENT_TYPES = {
 
 def registration_entries() -> list[tuple[str, str, str]]:
     """Build auditable registry values without changing Windows preferences."""
-    resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3]))
+    assets = resource_root()
     command = [sys.executable]
     if not getattr(sys, "frozen", False):
         pythonw = Path(sys.executable).with_name("pythonw.exe")
@@ -40,7 +42,7 @@ def registration_entries() -> list[tuple[str, str, str]]:
         classes = rf"Software\Classes\{progid}"
         entries += [
             (classes, "", description),
-            (classes + r"\DefaultIcon", "", f'"{resource_root / "resources" / "icons" / icon}",0'),
+            (classes + r"\DefaultIcon", "", f'"{assets / "resources" / "icons" / icon}",0'),
             (classes + r"\shell\open\command", "", open_command),
             (rf"Software\Classes\{extension}\OpenWithProgids", progid, ""),
             (APP_REGISTRATION + r"\FileAssociations", extension, progid),

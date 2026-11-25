@@ -250,6 +250,7 @@ JA.update({
     "Average adjacent pairs": "隣接2点を平均", "Sample weight (mg)": "試料重量 (mg)",
     "Plot Style": "プロットスタイル",
     "Register MDS / open Windows Default Apps": "MDSを登録・Windowsの既定のアプリを開く",
+    "Redact local paths": "ローカルパスを匿名化",
     "MDS document files (.mdss / .mdsg)": "MDS文書ファイル (.mdss / .mdsg)",
     "Select a branch in Datasets. Use the file context menu to edit branches and adjacent-pair averaging.": "左のDatasetsでブランチを選択してください。ファイル名の右クリックから、ブランチと隣接2点の平均を設定できます。",
 })

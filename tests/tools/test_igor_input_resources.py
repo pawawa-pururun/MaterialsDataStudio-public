@@ -147,6 +147,7 @@ def test_resources_are_accepted_only_with_insert_and_cleared_on_bind(window, mon
 
 
 def test_run_prepares_resources_in_fixed_sidecar_not_mdsg(window, monkeypatch):
+    monkeypatch.setattr("materials_data_studio.tools.command_window.procedure_execution_available", lambda: True)
     workspace = window.command_workspace
     prepared = [{"name": "prepared.dat", "path": "C:/prepared.dat", "text": "2\r\n"}]
     workspace.igor_input_resources = prepared

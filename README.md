@@ -2,7 +2,7 @@
 
 **English** | [日本語](README_ja.md) · [Documentation](docs/index.md) · [Latest release](https://github.com/tanabe0719/MaterialsDataStudio-public/releases/latest)
 
-A Windows desktop application for importing, comparing and analyzing XRD, MPMS
+A desktop application for importing, comparing and analyzing XRD, MPMS
 and PPMS measurements, and preparing publication figures in an independent Graph Editor.
 
 **Current version: 0.15.6 · Windows 11 x64 and Windows 10 x64.**
@@ -16,7 +16,7 @@ session format; keep an original copy when continuing to use an older version.
 
 > This repository starts from an audited snapshot without the earlier development history.
 
-## Install or upgrade
+## Install or upgrade on Windows
 
 1. Open **[Releases → latest](https://github.com/tanabe0719/MaterialsDataStudio-public/releases/latest)** and download `MaterialsDataStudio-v<version>-Setup.exe`.
 2. Close MDS, run Setup, and open **Materials Data Studio** from the Start menu.
@@ -30,6 +30,11 @@ portable folder is not removed automatically. [Installation details](docs/instal
 On installed Windows copies, MDS checks for updates at startup and shows release notes when a newer version is available. Choose **Download update**, then **Restart and update**; unsaved sessions and graphs are confirmed before applying. **Later** leaves the current version running. Disable automatic checks using **Do not check for updates at startup**, and restore them through **Help → Check for updates at startup**. **Help → Check for updates…** always remains available in both the main window and Graph Editor. Downloads and installation require confirmation; startup never silently applies a downloaded package.
 
 Versions before 0.15.0 do not have this feature: install the latest version once with Setup. Source/portable copies also use Setup. Settings, saved files and reference databases are retained; MDS does not send measurement data when checking for updates.
+
+## Linux and macOS
+
+The source supports native Linux x86_64 tar.gz and Apple Silicon macOS DMG builds.
+For prerequisites, document associations and packaging, see the [native build guide](docs/cross_platform_en.md).
 
 ## Workspaces
 
@@ -62,6 +67,7 @@ scores do not establish phase identity; verify results against your measurements
 | Main application | [User manual](docs/user_manual_en.md) | [ユーザーマニュアル](docs/user_manual.md) |
 | Graph Editor | [Graph Editor manual](docs/graph_viewer_manual_en.md) | [Graph Editorマニュアル](docs/graph_viewer_manual.md) |
 | Installation | [Setup and upgrades](docs/installation.md) | [導入・更新](docs/installation_ja.md) |
+| Graph Editor MCP | [Local plotting tools](docs/graph_mcp/README.md) | [作図ガイド](docs/graph_mcp/README_ja.md) |
 | Libraries and source | [Licenses / rebuilding](docs/building_and_licenses.md) | [ライセンス・再ビルド](docs/building_and_licenses_ja.md) |
 
 The four application manuals are also available offline through **Help**. Their

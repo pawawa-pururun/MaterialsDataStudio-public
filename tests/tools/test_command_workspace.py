@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 
+from materials_data_studio.core.capabilities import procedure_execution_available
 from materials_data_studio.tools.command_engine import CommandEngine
 from materials_data_studio.tools.command_language import evaluate, expression, parse, split
 from materials_data_studio.tools.command_services import DocumentServices
@@ -219,6 +220,7 @@ def test_python_public_api_and_transactions(engine, monkeypatch):
     assert mds.graph.active().trace("dMdT").line_width == 2
 
 
+@pytest.mark.skipif(not procedure_execution_available(), reason="No OS sandbox backend on this platform")
 def test_worker_explicit_run_and_failure(engine, tmp_path):
     ok(engine, "Make/D/N=4 y; y=p")
     (tmp_path / "input").mkdir()
@@ -285,6 +287,7 @@ def test_ui_completion_local_undo_and_imported_source(qtbot, engine, tmp_path):
     window.close()
 
 
+@pytest.mark.skipif(not procedure_execution_available(), reason="No OS sandbox backend on this platform")
 def test_ui_python_worker_commit_and_stop(qtbot, engine, monkeypatch):
     monkeypatch.setenv("PYTHONUNBUFFERED", "1")
     window = GraphEditorWindow()
@@ -309,6 +312,7 @@ def test_ui_python_worker_commit_and_stop(qtbot, engine, monkeypatch):
 
 
 @pytest.mark.parametrize("failure", ["exception", "stale"])
+@pytest.mark.skipif(not procedure_execution_available(), reason="No OS sandbox backend on this platform")
 def test_worker_exception_and_concurrent_edits_are_not_committed(qtbot, engine, failure):
     window = GraphEditorWindow()
     window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)

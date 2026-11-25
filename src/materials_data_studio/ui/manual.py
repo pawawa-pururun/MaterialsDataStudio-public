@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
@@ -26,6 +25,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from materials_data_studio.core.resources import resource_root
 
 
 class ManualTextBrowser(QTextBrowser):
@@ -60,12 +61,8 @@ def resolve_graph_manual_path(language: str = "en") -> Path:
 
 
 def _resolve_manual_path(filename: str) -> Path:
-    bundle_root = getattr(sys, "_MEIPASS", None)
     candidates = [
-        Path(str(bundle_root)) / "docs" / filename
-        if bundle_root is not None
-        else None,
-        Path(__file__).resolve().parents[3] / "docs" / filename,
+        resource_root() / "docs" / filename,
         Path.cwd() / "docs" / filename,
     ]
     for candidate in candidates:

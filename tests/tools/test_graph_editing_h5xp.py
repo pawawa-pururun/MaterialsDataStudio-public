@@ -10,6 +10,7 @@ import h5py
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication, QComboBox
+from pytestqt.qtbot import QtBot
 from tests.tools.test_graph_document import source as source_fixture
 from tests.tools.test_graph_interaction import editor_window
 
@@ -154,12 +155,15 @@ def test_drawing_clipboard_and_selection(window: object) -> None:
 
 
 def test_multinode_bezier_creation_and_edit(
-    window: object, monkeypatch: pytest.MonkeyPatch
+    window: object, monkeypatch: pytest.MonkeyPatch, qtbot: QtBot,
 ) -> None:
     monkeypatch.setattr(DrawingDialog, "exec", lambda *_: pytest.fail("Drawing options opened"))
+    window.set_mode("Bezier")  # type: ignore[attr-defined]
+    # Let the initial layout and its debounced redraw settle before dragging.
+    QApplication.processEvents()
+    qtbot.waitUntil(lambda: not window._resize_timer.isActive())  # type: ignore[attr-defined]
     ax = window.figure.axes[0]  # type: ignore[attr-defined]
     initial_bounds = window.canvas.size()  # type: ignore[attr-defined]
-    window.set_mode("Bezier")  # type: ignore[attr-defined]
     for i, xy in enumerate([(0.1, 0.7), (0.4, 0.3), (0.7, 0.7)]):
         x, y = ax.transAxes.transform(xy)
         event = SimpleNamespace(button=1, x=x, y=y, inaxes=ax, dblclick=i == 2)

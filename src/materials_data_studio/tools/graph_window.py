@@ -15,7 +15,16 @@ from typing import Any, cast
 import numpy as np
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QColor, QCursor, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QColor,
+    QCursor,
+    QKeySequence,
+    QPainter,
+    QPaintEvent,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -311,7 +320,8 @@ class GraphEditorWindow(PxpViewerWindow):
             button = QPushButton(title)
             button.clicked.connect(callback)
             row.addWidget(button)
-        central_layout = self.centralWidget().layout()
+        central = self.centralWidget()
+        central_layout = central.layout() if central is not None else None
         if isinstance(central_layout, QVBoxLayout):
             central_layout.insertWidget(0, self.start_panel)
 
@@ -337,7 +347,7 @@ class GraphEditorWindow(PxpViewerWindow):
     def view_state(self) -> dict[str, Any]:
         return self._local_view
 
-    def _action(self, title: str, callback: Any, shortcut: str = "") -> QAction:
+    def _action(self, title: str, callback: Any, shortcut: str | QKeySequence.StandardKey = "") -> QAction:
         action = self.file_menu.addAction(title)
         action.triggered.connect(callback)
         if shortcut:
@@ -377,8 +387,8 @@ class GraphEditorWindow(PxpViewerWindow):
         self.editor = GraphEditorController(document, saved=editable_path is not None)
         self.editor.path = editable_path
         self.edit_menu.clear()
-        for title, shortcut, method, attribute in (("Undo", "Ctrl+Z", self.editor.history.createUndoAction, "undo_action"),
-                                        ("Redo", "Ctrl+Y", self.editor.history.createRedoAction, "redo_action")):
+        for title, shortcut, method, attribute in (("Undo", QKeySequence.StandardKey.Undo, self.editor.history.createUndoAction, "undo_action"),
+                                        ("Redo", QKeySequence.StandardKey.Redo, self.editor.history.createRedoAction, "redo_action")):
             action = method(self, title)
             action.setShortcut(shortcut)
             action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
@@ -1582,9 +1592,9 @@ class GraphEditorWindow(PxpViewerWindow):
         if not event.dblclick and begin_resize(self, event):
             return
         renderer = self.canvas.get_renderer()
-        # Labels and annotations take precedence over underlying axes/images.
+        # Prefer text over axes/images, then the front-most overlapping peer.
         priority = {"drawing": 0, "label": 0, "annotation": 1, "legend": 1, "colorbar": 2, "trace": 3, "axis": 4, "image": 5}
-        for artist, target in sorted(self.artist_targets.items(), key=lambda item: priority.get(item[1][0], 9)):
+        for artist, target in sorted(self.artist_targets.items(), key=lambda item: (priority.get(item[1][0], 9), -item[0].get_zorder())):
             artist: Any = artist
             if not artist.get_visible():
                 continue

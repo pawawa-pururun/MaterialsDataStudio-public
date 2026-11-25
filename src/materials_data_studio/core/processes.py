@@ -49,4 +49,13 @@ def process_is_running(process_id: int) -> bool:
 
 
 def process_started_at(process_id: int) -> float | None:
-    return _windows_process(process_id)[1] if os.name == "nt" else None
+    if process_id <= 0:
+        return None
+    if os.name == "nt":
+        return _windows_process(process_id)[1]
+    import psutil
+
+    try:
+        return psutil.Process(process_id).create_time()
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return None

@@ -10,9 +10,19 @@ Complete collected notices and version metadata are under `_internal/licenses/`.
 This includes NumPy/SciPy bundled numerical-library notices and upstream Qt
 third-party notices. Build-tool licenses may be included for completeness.
 
+Native Linux and macOS packages use the same corresponding-source and notice
+collection. The psutil BSD-3-Clause license is included in
+`resources/licenses/psutil/LICENSE`. The optional source-installed Graph Editor
+MCP tools use dependencies under their own licenses, including the MIT-licensed
+MCP Python SDK and BSD-3-Clause-licensed pypdf.
+
 Windows版にはQt/PySide6/shiboken6（配布モジュールはLGPLv3を選択）、igor2（LGPL-3.0-or-later）、
 MPL対象のGemmi・certifi・orjson・tqdmの部品などを含みます。版と収集した告知本文は
 `_internal/licenses/` に収録します。NumPy/SciPyの数値ライブラリ、Qtの第三者部品も対象です。
+
+Linux・macOSのパッケージでも対応ソースと告知を確認します。psutilのBSD-3-Clause
+ライセンスは `resources/licenses/psutil/LICENSE` に収録します。ソース版の任意機能
+Graph Editor MCP が使う MCP Python SDK と pypdf などには、各ライセンスが適用されます。
 
 No MDS term restricts LGPL modification/relinking or reverse engineering needed
 to debug such modifications. Corresponding source archives and MDS application

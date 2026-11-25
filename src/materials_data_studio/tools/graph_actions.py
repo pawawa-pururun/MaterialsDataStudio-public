@@ -298,7 +298,6 @@ def edit_annotation(window: GraphEditorWindow, kind: str, identifier: str) -> No
 
 
 def run_quick_fit(window: GraphEditorWindow, trace_name: str = "", model: str = "line", *, preview: bool = False) -> None:
-    from materials_data_studio.tools.graph_fit_dialog import QuickFitDialog
     if window.editor is None or window.graph() is None:
         return
     graph = window.graph()
@@ -338,10 +337,17 @@ def run_quick_fit(window: GraphEditorWindow, trace_name: str = "", model: str = 
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(window, "Quick Fit", str(exc))
         return
+    from materials_data_studio.tools.graph_fit_dialog import QuickFitDialog
     dialog = QuickFitDialog(window, window.editor.document, graph.name, trace_name, model, limits,
                             getattr(window, "fit_weighted", True))
     if dialog.exec() == QDialog.DialogCode.Accepted and dialog.result_state is not None:
         window.editor.commit(window.editor.document.current, dialog.result_state, "Quick Fit " + model)
+
+
+def show_analysis(window: GraphEditorWindow, kind: str, *, statistical: bool = True) -> None:
+    from materials_data_studio.tools.graph_analysis_forms import show_analysis as show_dialog
+
+    show_dialog(window, kind, statistical=statistical)
 
 
 def install_menus(window: GraphEditorWindow) -> None:
@@ -359,7 +365,6 @@ def install_menus(window: GraphEditorWindow) -> None:
     for operation in ("Concatenate", "SplitWave", "Note", "SetDimLabel"):
         data.addAction(operation + "…", lambda _checked=False, op=operation: scientific_wave_action(window, op))
     from materials_data_studio.tools.graph_analysis_dialogs import analysis_action
-    from materials_data_studio.tools.graph_analysis_forms import show_analysis
     from materials_data_studio.tools.graph_native_analysis_dialog import native_analysis
     from materials_data_studio.tools.graph_statistics import STATISTICS
     analysis = window.menuBar().addMenu("Analysis")

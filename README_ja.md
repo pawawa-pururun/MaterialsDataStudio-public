@@ -2,7 +2,7 @@
 
 [English](README.md) | **日本語** · [文書一覧](docs/index.md) · [最新版](https://github.com/tanabe0719/MaterialsDataStudio-public/releases/latest)
 
-XRD・MPMS・PPMSの測定データを読み込み、比較・解析し、独立したGraph Editorで発表・論文用の図を作るWindowsアプリです。
+XRD・MPMS・PPMSの測定データを読み込み、比較・解析し、独立したGraph Editorで発表・論文用の図を作るデスクトップアプリです。
 
 **現行版：0.15.6 · Windows 11 x64 / Windows 10 x64対応。**
 
@@ -14,7 +14,7 @@ CIF計算の開始を高速化し、三方晶の六方軸・菱面体軸を編�
 
 > 監査済みの現行版を起点とし、以前の開発履歴は含みません。
 
-## インストール・更新
+## Windows のインストール・更新
 
 1. **[Releasesの最新版](https://github.com/tanabe0719/MaterialsDataStudio-public/releases/latest)**から `MaterialsDataStudio-v<version>-Setup.exe` を取得します。
 2. MDSを終了してSetupを実行し、スタートメニューの **Materials Data Studio** を開きます。
@@ -28,6 +28,11 @@ GitHubの **Source code** と `.nupkg` は通常のインストーラではあ�
 Windowsのインストーラ導入版では、起動時に更新を確認し、新しい版があればリリースノートと選択肢を表示します。**更新をダウンロード** の後、**再起動して更新** を選びます。適用前に未保存のセッション・グラフを確認し、**後で** を選べば現在の版を使い続けられます。**今後は起動時にアップデートを確認しない** で自動確認を止め、**Help → 起動時にアップデートを確認** で再度有効にできます。メイン画面・Graph Editorの **Help → アップデートを確認…** は無効化後も利用できます。ダウンロードと適用には確認が必要で、起動時に黙って更新を適用しません。
 
 0.15.0より前の版にはこの機能がないため、最初の導入には最新版のSetupを使用してください。ソース版・portable版もSetupで導入します。設定・保存ファイル・参照DBは保持され、更新確認で測定データを送信しません。
+
+## Linux・macOS
+
+ソースから Linux x86_64 向け tar.gz と Apple Silicon macOS 向け DMG をビルドできます。
+動作環境、ファイルの関連付け、ビルド方法は [ネイティブビルドガイド](docs/cross_platform.md) にあります。
 
 ## 主な作業画面
 
@@ -58,6 +63,7 @@ SetupとGitリポジトリに大容量の参照DB本体は含みません。
 | メインアプリ | [ユーザーマニュアル](docs/user_manual.md) | [User manual](docs/user_manual_en.md) |
 | Graph Editor | [Graph Editorマニュアル](docs/graph_viewer_manual.md) | [Graph Editor manual](docs/graph_viewer_manual_en.md) |
 | 導入・更新 | [インストール手順](docs/installation_ja.md) | [Setup and upgrades](docs/installation.md) |
+| Graph Editor MCP | [作図ガイド](docs/graph_mcp/README_ja.md) | [Local plotting tools](docs/graph_mcp/README.md) |
 | ライブラリとソース | [ライセンス・再ビルド](docs/building_and_licenses_ja.md) | [Licenses / rebuilding](docs/building_and_licenses.md) |
 
 アプリの4つのマニュアルは **Help** からオフラインでも開けます。掲載画像は合成データを使用しています。[文書一覧](docs/index.md)。
