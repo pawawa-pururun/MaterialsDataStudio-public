@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
-from typing import Any
+from threading import Event
+from typing import Any, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,7 +14,7 @@ from numpy.typing import NDArray
 from materials_data_studio.graph_mcp.schema import Column, Source
 from materials_data_studio.modules.ppms.io import read_ppms_text
 from materials_data_studio.modules.xrd.parser import parse_xrd_rasx
-from materials_data_studio.tools.graph_waves import read_text, text_rows
+from materials_data_studio.tools.graph_waves import column_names, detect_start, read_text, text_rows
 
 MAX_INPUT_BYTES = 64 * 1024**2
 MAX_CELLS = 8_000_000  # Total numerical values used in one figure.
@@ -25,6 +26,12 @@ class PlotError(ValueError):
         super().__init__(message)
         self.code = code
         self.field = field
+
+
+class InputFiles(Protocol):
+    """Resolve a file explicitly available to the figure builder."""
+
+    def path(self, value: str, *, max_bytes: int = MAX_INPUT_BYTES) -> Path: ...
 
 
 @dataclass(frozen=True)
@@ -106,7 +113,7 @@ class Table:
             for _, row in islice(self.records(), start, start + count)
         ]
 
-    def numeric(self, binding: Column, name: str) -> Array:
+    def numeric(self, binding: Column, name: str, *, cancelled: Event | None = None) -> Array:
         field_name = f"columns.{name}"
         if isinstance(binding.column, str):
             matches = [i for i, header in enumerate(self.headings) if header == binding.column]
@@ -144,6 +151,8 @@ class Table:
 
         numbers = []
         for record, row in islice(self.records(), first, stop):
+            if cancelled is not None and record % 1024 == 0 and cancelled.is_set():
+                raise InterruptedError("Stopped reading plot columns")
             if index >= len(row):
                 raise PlotError(
                     "invalid_input_rows", field_name, f"Column is absent at record {record}."
@@ -182,7 +191,10 @@ def _quantum_design_header(rows: list[list[str]], path: str) -> tuple[int, dict[
     return marker + 1, metadata
 
 
-def load_table(workspace: Workspace, source: Source) -> Table:
+def load_table(
+    workspace: InputFiles, source: Source, *,
+    infer_start: bool = False, cancelled: Event | None = None,
+) -> Table:
     path = workspace.path(source.path)
     if source.kind == "rasx":
         parsed = parse_xrd_rasx(path)
@@ -195,13 +207,18 @@ def load_table(workspace: Workspace, source: Source) -> Table:
             numeric_data=np.column_stack((parsed.x, parsed.intensity)),
         )
     if source.kind == "quantum_design":
-        rows = text_rows(read_ppms_text(path), "Comma")
+        rows = text_rows(read_ppms_text(path), "Comma", cancelled=cancelled)
         start, metadata = _quantum_design_header(rows, source.path)
     else:
         delimiter: str = source.delimiter
-        if delimiter == "Auto":
+        if delimiter == "Auto" and not infer_start:
             delimiter = {".csv": "Comma", ".tsv": "Tab"}.get(path.suffix.lower(), "Auto")
-        rows = text_rows(read_text(path), delimiter)
+        rows = text_rows(read_text(path, cancelled=cancelled), delimiter, cancelled=cancelled)
+        if infer_start and any(rows):
+            start = detect_start(rows, cancelled=cancelled)
+            headings = column_names(rows, start) or [""] * len(rows[start])
+            records = [row if not row or not row[0].startswith(("#", "*")) else [] for row in rows[start:]]
+            return Table(headings, records, start + 1)
         start, metadata = source.first_record - 1, {}
         # Keep record positions accurate even when a text export has comments.
         rows = [row if not row or not row[0].startswith(("#", "*")) else [] for row in rows]

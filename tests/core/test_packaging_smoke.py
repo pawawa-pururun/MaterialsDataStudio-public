@@ -30,6 +30,7 @@ def test_packaging_smoke_exercises_lazy_dependencies(tmp_path: Path) -> None:
     assert "reflections=" in text
     assert "profile_points=" in text
     assert "mdsg_roundtrip=OK" in text
+    assert "graph_templates=OK" in text
     assert "graph_exports=PNG,SVG,PDF,EPS,BMP,JPEG,TIFF" in text
     assert "built_graph_previews=OK" in text
     assert "selection_properties_lifetime=OK" in text

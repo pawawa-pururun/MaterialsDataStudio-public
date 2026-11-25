@@ -25,8 +25,8 @@ from materials_data_studio.graph_mcp.graphs import (
 )
 from materials_data_studio.graph_mcp.inputs import (
     Array,
+    InputFiles,
     PlotError,
-    Workspace,
     finite,
     paired,
     unit_key,
@@ -158,7 +158,7 @@ def _unique_labels(labels: list[str], field: str) -> None:
 
 
 def _reference_graphs(
-    workspace: Workspace,
+    workspace: InputFiles,
     data: Data,
     references: list[Reference],
     bounds: Limits,
@@ -275,7 +275,7 @@ def _phase_margin(refs: list[Reference], *, simulation: bool = False) -> float:
     )
 
 
-def stack_graphs(workspace: Workspace, data: Data, plot: XrdStack) -> tuple[str, list[PxpGraph]]:
+def stack_graphs(workspace: InputFiles, data: Data, plot: XrdStack) -> tuple[str, list[PxpGraph]]:
     labels = [spec.label for spec in plot.scans]
     _unique_labels(labels, "plot.scans")
     scans = [_scan(data, spec) for spec in plot.scans]
@@ -360,7 +360,7 @@ def _same_grid(x: Array, other: Array, tolerance: float, field: str) -> None:
 
 
 def rietveld_graphs(
-    workspace: Workspace, data: Data, plot: XrdRietveld
+    workspace: InputFiles, data: Data, plot: XrdRietveld
 ) -> tuple[str, list[PxpGraph]]:
     x, observed = _scan(data, plot.observed)
     xc, calculated = _scan(data, plot.calculated)

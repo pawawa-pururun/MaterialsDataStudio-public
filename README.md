@@ -43,7 +43,7 @@ For prerequisites, document associations and packaging, see the [native build gu
 | XRD | Text/XY/DAT/RASX/CIF import, Cu Kα1/2 simulation and fitting, arPLS background, lattice adjustment, whole-pattern/Le Bail fitting, offline phase search |
 | MPMS | ZFC/FC and field branches, independent visibility/style/analysis, M–T/M–H and Curie–Weiss fitting |
 | PPMS | Heat capacity, low-temperature and Debye–Einstein fitting, transport/VRH, Bridge/branch organization and custom plots |
-| Graph Editor | Waves/tables, XY/images and multiple axes, annotations/drawing, fitting/statistics, PXP/H5XP import, H5XP export and Send to Igor |
+| Graph Editor | Graph templates, waves/tables, XY/images and multiple axes, annotations/drawing, fitting/statistics, PXP/H5XP import, H5XP export and Send to Igor |
 | Shared tools | Non-destructive sessions, Undo/Redo, Japanese/English UI and manuals, light/dark themes, data and vector/raster figure export |
 
 MDS supports documented subsets of Igor-compatible operations; it is an independent

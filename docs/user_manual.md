@@ -927,6 +927,8 @@ XRDタブと同じ安全なRASXパーサーを使い、ZIP内 `Data0/Profile0.tx
 表示中の図は **File > Edit current plot in Graph Editor** またはグラフと鉛筆の
 アイコンから転送できます。Igor Proのインストールは不要です。
 
+測定ファイルや読み込み済みのwaveから定型図を作る場合は **Graph > テンプレートから作図…** を使います。[対応する図と操作手順](graph_viewer_manual.md#テンプレートから作図)
+
 詳しい操作はViewerの **Help > Graph Viewer Manual (English)**（F1）または日本語版を
 参照してください。Python環境・許可module・mds APIは同じHelp内の
 **Python / mds Help…** にまとめています。

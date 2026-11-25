@@ -156,6 +156,24 @@ Density normalization includes finite observations outside explicit bins, so a t
 
 ## 5. Creating graphs, traces and axes
 
+### Create a graph from a template
+
+1. Open **Graph > Create Graph from Template…** and choose the figure type. The same button is available in an empty Graph Editor.
+2. Use **Add data files…** or drop CSV, TSV, TXT, DAT, XY or RASX files onto the dialog. Existing one-dimensional numeric waves in the document are already available as inputs.
+3. Use the preview to confirm the column and unit for each role. Recognizable headers are suggested. Leave **Data rows** blank to use every row, or enter `1:50` for the first 50 measurement rows, excluding headings and comments.
+4. Click **Create Graph** to add an editable figure and its plotting waves to the current document. Existing waves and graphs are retained. One Undo removes the entire addition. Edit, save as `.mdsg` or export as with other graphs.
+
+| Template | Inputs |
+|---|---|
+| XY plot | X and Y columns and units, with optional Y uncertainty. |
+| XRD stacked scans | 2θ and intensities for one or more scans. Select the 2θ column for each separate file. Set the legend labels, optional normalization and references. |
+| XRD condition map | Columns for 2θ, condition and intensity, and the condition unit. Conditions use the same angle grid. |
+| XRD Rietveld display | Observations, a supplied calculated profile on the same ordered 2θ grid and phase Bragg positions. The template also draws observed minus calculated. |
+| MPMS ZFC / FC molar susceptibility | Temperature (K), moment (emu), field (Oe), sample mass (mg) and molar mass (g/mol). Choose separate row ranges if sweeps are in the same column. |
+| PPMS Cp/T versus T² | Temperature (K), heat capacity (µJ/K), sample and molar masses. If selected, heat capacity uncertainty is converted with the same factor and shown as error bars. |
+
+For a CIF reference, select the phase file and supply the measured wavelength in Å. Use **Load General Text…** first if a text file needs manual import settings, then select its waves in the template dialog.
+
 Use **Graph > New Graph…** to choose a plot type, Y waves, X wave (or scaling), axes and name. Multiple Y waves can be selected.
 **Append Traces / Images…** adds to the current graph. **Replace X / Y Waves…** changes data while retaining styles.
 **Reorder Traces…** lists BACK at the top and FRONT at the bottom.

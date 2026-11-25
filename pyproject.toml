@@ -25,6 +25,7 @@ dependencies = [
   "h5py>=3.12,<4",
   "igor2>=0.5.13,<0.6",
   "psutil>=6,<8",
+  "pydantic>=2.11,<3",
   "velopack==1.2.161 ; sys_platform == 'win32'",
 ]
 
@@ -32,7 +33,6 @@ dependencies = [
 mcp = [
   "anyio>=4.5,<5",
   "mcp>=1.26,<2",
-  "pydantic>=2.11,<3",
   "pypdf>=6,<7",
 ]
 mp-builder = [

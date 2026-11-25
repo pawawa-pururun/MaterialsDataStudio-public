@@ -215,6 +215,7 @@ class GraphEditorWindow(PxpViewerWindow):
         self.save_action = self._action("Save Graph Document", self.save_document, "Ctrl+S")
         self._action("Save Graph Document As…", self.save_document_as, "Ctrl+Shift+S")
         self.import_action = self._action("Load General Text…", lambda: import_text(self), "Ctrl+I")
+        self.template_action = self._action("Create Graph from Template…", self.create_graph_from_template)
         self.export_figure_action = self._action("Export Figure…", self.export_graph, "Ctrl+Shift+E")
         self.export_data_action = self._action("Export Data…", self.export_data, "Ctrl+E")
         self.send_to_igor_action = self._action("Send to Igor Pro", self.send_to_igor)
@@ -316,7 +317,12 @@ class GraphEditorWindow(PxpViewerWindow):
         from materials_data_studio.tools.graph_actions import graph_action
         self.start_panel = QWidget()
         row = QHBoxLayout(self.start_panel)
-        for title, callback in (("Open experiment / graph", self.choose_file), ("Import general text", lambda: import_text(self)), ("New graph", lambda: graph_action(self, "new"))):
+        for title, callback in (
+            ("Open experiment / graph", self.choose_file),
+            ("Import general text", lambda: import_text(self)),
+            ("Create Graph from Template…", self.create_graph_from_template),
+            ("New graph", lambda: graph_action(self, "new")),
+        ):
             button = QPushButton(title)
             button.clicked.connect(callback)
             row.addWidget(button)
@@ -364,6 +370,42 @@ class GraphEditorWindow(PxpViewerWindow):
             self.bind_document(blocking_task(self, f"Open {path.name}", lambda: self.backend.open(path)))
         except Exception as exc:
             QMessageBox.warning(self, "PXP Open Error", str(exc))
+
+    def create_graph_from_template(self) -> None:
+        if not self.confirm_property_edits():
+            return
+        from PySide6.QtWidgets import QDialog
+        from shiboken6 import isValid
+
+        from materials_data_studio.tools.graph_template_dialog import GraphTemplateDialog
+        from materials_data_studio.tools.graph_waves import empty_document
+        from materials_data_studio.ui.localization import tr
+
+        editor = self.editor
+        if editor is None:
+            snapshot = empty_document()
+        else:
+            editor.finish_verifications()
+            snapshot = replace(editor.document, current=editor.document.current.clone())
+        dialog = GraphTemplateDialog(snapshot, self)
+        try:
+            if dialog.exec() != QDialog.DialogCode.Accepted or dialog.result_edit is None or not isValid(self):
+                return
+            if self.editor is not editor or (editor is not None and editor.document.current != snapshot.current):
+                QMessageBox.warning(self, tr("Create Graph from Template"),
+                                    tr("The graph document changed. Open the template again to use the current data."))
+                return
+            name, after = dialog.result_edit
+            if self.editor is None:
+                self.bind_graph_document(snapshot)
+            assert self.editor is not None
+            self._selection = "graph", name
+            self._property_selection = self._selection
+            self.view_state["selected"] = self._selection
+            self.editor.commit(self.editor.document.current, after, "Create Graph from Template")
+        finally:
+            if isValid(dialog):
+                dialog.deleteLater()
 
     def bind_document(self, document: PxpDocument) -> None:
         self.bind_graph_document(EditableGraphDocument.from_pxp(document))

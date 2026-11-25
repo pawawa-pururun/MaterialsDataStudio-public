@@ -10,6 +10,7 @@ import tempfile
 import time
 import traceback
 from pathlib import Path
+from threading import Event
 from typing import TextIO
 
 from materials_data_studio.core.capabilities import procedure_execution_available
@@ -99,6 +100,14 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
         from materials_data_studio.tools.graph_h5xp import load_h5xp, save_h5xp
         from materials_data_studio.tools.graph_render import IgorMatplotlibRenderer
         from materials_data_studio.tools.graph_tables import TableModel
+        from materials_data_studio.tools.graph_templates import (
+            Binding,
+            InputColumn,
+            TemplateRequest,
+            add_template,
+            read_template_table,
+        )
+        from materials_data_studio.tools.graph_waves import empty_document
         from materials_data_studio.tools.graph_window import GraphEditorWindow
         from materials_data_studio.tools.igor_input_resources import write_input_resources
         from materials_data_studio.tools.igor_procedure_conversion import (
@@ -129,6 +138,17 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
                                status="GRAPH_PARTIAL", source_bytes=source,
                                tables=("Table0",), table_definitions=(PxpTable("Table0", ("x", "y")),))
         with tempfile.TemporaryDirectory(prefix="mds-graph-smoke-") as temporary:
+            input_path = Path(temporary) / "template.csv"
+            input_path.write_text("time (s),signal (count)\n0,3\n1,5\n2,4\n", encoding="utf-8")
+            stop = Event()
+            template_input = read_template_table(input_path, stop)
+            bindings = {
+                "x": Binding(InputColumn("time", "s", template_input, 0), "s"),
+                "y": Binding(InputColumn("signal", "count", template_input, 1), "count"),
+            }
+            name, state = add_template(empty_document(), TemplateRequest("xy", bindings), stop)
+            if len(state.graphs) != 1 or state.graphs[0].name != name or not state.graphs[0].traces:
+                raise RuntimeError("Graph template smoke test failed")
             graph_path = Path(temporary) / "smoke.mdsg"
             save_graph_document(graph_path, EditableGraphDocument.from_pxp(imported))
             restored = load_graph_document(graph_path)
@@ -590,6 +610,7 @@ def run_packaging_smoke_test(report_path: Path) -> bool:
             f"profile_points={len(pattern.profile_x)}\n"
             f"pxp_graphs={len(graphs)}\n"
             "mdsg_roundtrip=OK\n"
+            "graph_templates=OK\n"
             "pxp_tables=OK\n"
             "h5xp_roundtrip=OK\n"
             "graph_exports=PNG,SVG,PDF,EPS,BMP,JPEG,TIFF\n"
