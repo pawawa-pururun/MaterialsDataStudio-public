@@ -1,6 +1,12 @@
 name: CI
 on:
   pull_request:
+  workflow_call:
+    inputs:
+      platform:
+        description: Platform to test
+        type: string
+        default: linux
   workflow_dispatch:
     inputs:
       platform:
@@ -11,7 +17,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   test:

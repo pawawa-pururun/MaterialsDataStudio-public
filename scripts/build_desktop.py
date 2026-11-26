@@ -111,10 +111,13 @@ def build(output: Path, work: Path, *, notary_profile: str = "", warm_user_cache
             raise ValueError("Notarization requires MDS_MAC_SIGN_IDENTITY")
         if identity:
             run(["codesign", "--verify", "--deep", "--strict", str(folder)])
+        notary_options = ["--keychain-profile", notary_profile, "--wait"]
+        if keychain := os.environ.get("MDS_MAC_NOTARY_KEYCHAIN"):
+            notary_options += ["--keychain", keychain]
         if notary_profile:
             upload = work / "notarization.zip"
             run(["ditto", "-c", "-k", "--keepParent", str(folder), str(upload)])
-            run(["xcrun", "notarytool", "submit", str(upload), "--keychain-profile", notary_profile, "--wait"], timeout=1800)
+            run(["xcrun", "notarytool", "submit", str(upload), *notary_options], timeout=1800)
             run(["xcrun", "stapler", "staple", str(folder)])
         with tempfile.TemporaryDirectory(prefix="mds-dmg-", dir=work) as staging:
             image = Path(staging)
@@ -125,7 +128,7 @@ def build(output: Path, work: Path, *, notary_profile: str = "", warm_user_cache
         if identity:
             run(["codesign", "--sign", identity, "--timestamp", str(artifact)])
         if notary_profile:
-            run(["xcrun", "notarytool", "submit", str(artifact), "--keychain-profile", notary_profile, "--wait"], timeout=1800)
+            run(["xcrun", "notarytool", "submit", str(artifact), *notary_options], timeout=1800)
             run(["xcrun", "stapler", "staple", str(artifact)])
             run(["xcrun", "stapler", "validate", str(artifact)])
     else:

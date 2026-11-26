@@ -27,10 +27,22 @@ archive and its checksum are in `release_assets/`.
   notarization are available through the build's signing identity and notarytool
   profile. Use signed and notarized builds for general distribution.
 
-PR checks exercise Windows and Linux. Run `ci.yml` or `desktop-packages.yml`
-with `platform=macos` for the Apple Silicon runner. Native package workflows
-produce build artifacts. Distribute binaries with matching application and
-corresponding library sources using the published release rules.
+## GitHub Actions builds
+
+Run **Native desktop packages** (`desktop-packages.yml`) with `platform=linux`
+or `platform=macos` to download a development build and checksum from the run's
+Artifacts. Linux uses Ubuntu 22.04 for ABI compatibility. macOS uses an Apple
+Silicon runner. Use [Desktop release](maintainers/releases.md) to publish
+selected native packages and matching source archives to Releases.
+
+For a release DMG, set `MDS_MAC_CERTIFICATE_P12_BASE64` and
+`MDS_MAC_CERTIFICATE_PASSWORD` for the Developer ID Application certificate,
+and `MDS_MAC_SIGN_IDENTITY` for its codesign identity. Set
+`MDS_MAC_NOTARY_APPLE_ID`, `MDS_MAC_NOTARY_TEAM_ID` and
+`MDS_MAC_NOTARY_PASSWORD` (an app-specific password) for notarization. Store these
+values in GitHub Actions secrets. The runner removes the temporary certificate
+file and signing keychain.
+
 [Detailed Japanese build guide](cross_platform.md) ·
 [Licenses and corresponding source](building_and_licenses.md) ·
 [Publication rules](maintainers/publication_policy.md)
