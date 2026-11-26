@@ -1,0 +1,39 @@
+{
+  "output_dir": "xrd-parent-comparison-output",
+  "recipe": {
+    "sources": {
+      "scans": {"path": "data/xrd-parent-comparison.csv"},
+      "a": {"path": "data/xrd-parent-a.csv"},
+      "b": {"path": "data/xrd-parent-b.csv"}
+    },
+    "columns": {
+      "angle": {"source": "scans", "column": "2theta (degree)", "unit": "degree"},
+      "scan700": {"source": "scans", "column": "Counts0 (count)", "unit": "count"},
+      "scan800": {"source": "scans", "column": "Counts1 (count)", "unit": "count"},
+      "scan900": {"source": "scans", "column": "Counts2 (count)", "unit": "count"},
+      "parent_a_angle": {"source": "a", "column": "Phase 1 2theta (degree)", "unit": "degree"},
+      "parent_a_height": {"source": "a", "column": "Phase 1 intensity (relative)", "unit": "relative"},
+      "parent_b_angle": {"source": "b", "column": "Phase 2 2theta (degree)", "unit": "degree"},
+      "parent_b_height": {"source": "b", "column": "Phase 2 intensity (relative)", "unit": "relative"}
+    },
+    "plot": {
+      "kind": "xrd_stack",
+      "scans": [
+        {"x": "angle", "y": "scan700", "label": "Annealed at 700 K"},
+        {"x": "angle", "y": "scan800", "label": "Annealed at 800 K"},
+        {"x": "angle", "y": "scan900", "label": "Annealed at 900 K"}
+      ],
+      "normalization": "peak100",
+      "offsets": [0, 120, 240],
+      "angle_limits_deg": [10, 80],
+      "references": [
+        {"kind": "peaks", "label": "Parent A", "angles": "parent_a_angle", "intensity": "parent_a_height"},
+        {"kind": "peaks", "label": "Parent B", "angles": "parent_b_angle", "intensity": "parent_b_height"}
+      ]
+    },
+    "provenance": {
+      "origin": "Synthetic baseline d19_xrd_parent_comparison",
+      "references": "Illustrative peak tables from two synthetic cubic models"
+    }
+  }
+}

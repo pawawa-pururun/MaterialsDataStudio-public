@@ -66,6 +66,7 @@ scores do not establish phase identity; verify results against your measurements
 |---|---|---|
 | Main application | [User manual](docs/user_manual_en.md) | [ユーザーマニュアル](docs/user_manual.md) |
 | Graph Editor | [Graph Editor manual](docs/graph_viewer_manual_en.md) | [Graph Editorマニュアル](docs/graph_viewer_manual.md) |
+| XRD examples | [Parent structures and pressure maps](docs/graph_examples/README.md) | [母構造比較・圧力マップ](docs/graph_examples/README_ja.md) |
 | Installation | [Setup and upgrades](docs/installation.md) | [導入・更新](docs/installation_ja.md) |
 | Graph Editor MCP | [Local plotting tools](docs/graph_mcp/README.md) | [作図ガイド](docs/graph_mcp/README_ja.md) |
 | Libraries and source | [Licenses / rebuilding](docs/building_and_licenses.md) | [ライセンス・再ビルド](docs/building_and_licenses_ja.md) |

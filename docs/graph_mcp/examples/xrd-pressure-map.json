@@ -1,0 +1,20 @@
+{
+  "output_dir": "xrd-pressure-map-output",
+  "recipe": {
+    "sources": {
+      "series": {"path": "data/xrd-pressure-map.csv"}
+    },
+    "columns": {
+      "angle": {"source": "series", "column": "2theta (degree)", "unit": "degree"},
+      "pressure": {"source": "series", "column": "Pressure (GPa)", "unit": "GPa"},
+      "intensity": {"source": "series", "column": "Intensity (arb. units)", "unit": "arb. units"}
+    },
+    "plot": {
+      "kind": "xrd_map",
+      "data": {"kind": "long_table", "x": "angle", "condition": "pressure", "intensity": "intensity"},
+      "condition_label": "Pressure (GPa)",
+      "condition_unit": "GPa"
+    },
+    "provenance": {"origin": "Synthetic baseline d21_xrd_pressure", "sampling": "Every 0.2 degrees and 0.6 GPa"}
+  }
+}

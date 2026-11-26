@@ -32,3 +32,6 @@ root as the MCP workspace.
 See the [Japanese guide](README_ja.md) for full recipe fields. Codex can also
 use the [XRD](../../.agents/skills/materials-xrd-figures/SKILL.md) and
 [solid-state figure](../../.agents/skills/materials-solid-state-figures/SKILL.md) skills.
+
+The [XRD parent-structure and pressure-map examples](../graph_examples/README.md)
+provide CSVs and ready-to-run MCP recipes for those two plots.
