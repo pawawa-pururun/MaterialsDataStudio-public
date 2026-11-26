@@ -62,6 +62,7 @@ SetupとGitリポジトリに大容量の参照DB本体は含みません。
 |---|---|---|
 | メインアプリ | [ユーザーマニュアル](docs/user_manual.md) | [User manual](docs/user_manual_en.md) |
 | Graph Editor | [Graph Editorマニュアル](docs/graph_viewer_manual.md) | [Graph Editor manual](docs/graph_viewer_manual_en.md) |
+| XRD作図例 | [母構造比較・圧力マップ](docs/graph_examples/README_ja.md) | [Parent structures and pressure maps](docs/graph_examples/README.md) |
 | 導入・更新 | [インストール手順](docs/installation_ja.md) | [Setup and upgrades](docs/installation.md) |
 | Graph Editor MCP | [作図ガイド](docs/graph_mcp/README_ja.md) | [Local plotting tools](docs/graph_mcp/README.md) |
 | ライブラリとソース | [ライセンス・再ビルド](docs/building_and_licenses_ja.md) | [Licenses / rebuilding](docs/building_and_licenses.md) |

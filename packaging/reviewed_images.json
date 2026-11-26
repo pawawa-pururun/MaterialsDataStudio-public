@@ -129,6 +129,12 @@
     "tests/visual_baselines/marker_fill.png": "6ba79bc57fa0d81142eba88836d8d1e48b929f04af4ffb38f8d6644c737af20d",
     "tests/visual_baselines/multiple_axes.png": "6bf2a03763ef7bec7c80cedd533ce7ec63671ed7823138467988152f6dd7dab1",
     "resources/previews/graph-previews.png": "e162760dc65700a94970872b969125e6839ae643e249794c66497c670a4f05d6",
-    "resources/previews/graph-previews@2x.png": "55e9e2feb7b4ad6edbbe468f076cea79b04a20652d9e216fb0a50edf4b8153b2"
+    "resources/previews/graph-previews@2x.png": "55e9e2feb7b4ad6edbbe468f076cea79b04a20652d9e216fb0a50edf4b8153b2",
+    "docs/graph_examples/figures/xrd-parent-comparison.png": "77db76918db775098ca00eaed30c4c67c9636d882161fe4675ffc14481950e77",
+    "docs/graph_examples/figures/xrd-pressure-map.png": "f1e8e5e4e001b906f6e81bc8abc8049325782badfe55aa3a18a9896170ab1254"
+  },
+  "graph_examples_review": {
+    "date": "2026-11-25",
+    "method": "Regenerated from the public synthetic suite and reviewed visually, with OCR and PNG metadata checks."
   }
 }

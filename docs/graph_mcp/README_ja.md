@@ -57,3 +57,5 @@ XRDの `angle_limits_deg` を省略したときは実測範囲を使います。
 - 3条件の縦積み [XRD](examples/xrd-stack.json)
 - 物性換算と条件別系列 [MPMS ZFC/FC](examples/mpms-zfc-fc.json)
 - 物性換算と誤差棒 [PPMS Cp/T–T²](examples/ppms-cp.json)
+
+[XRDの母構造比較と圧力マップ](../graph_examples/README_ja.md)には、手動作図とMCPで共用できる合成CSVとレシピがあります。

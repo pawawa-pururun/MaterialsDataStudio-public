@@ -7,6 +7,8 @@ description: Create and check title-free powder XRD figures in Materials Data St
 
 `materials-data-studio` MCPの `inspect_input`、`create_figure`、`inspect_document` を使う。起動手順とリクエスト例は [作図ガイド](../../../docs/graph_mcp/README_ja.md) にある。
 
+[母構造比較](../../../docs/graph_mcp/examples/xrd-parent-comparison.json)と[圧力マップ](../../../docs/graph_mcp/examples/xrd-pressure-map.json)は対応するJSONから始める。公開作例を再現する場合は、[XRD作図例](../../../docs/graph_examples/README_ja.md)の `data/` があるフォルダを `--workspace` に指定する。実データでは確認済みの列・単位・測定条件に置き換え、同じ入力の列確認結果を再利用する。
+
 1. 各ファイルの列を `inspect_input` で確認する。2θの単位、条件名と並び、実測・計算・参照の区別を特定する。列や測定条件を特定できなければ、どのファイルのどの情報が必要かを質問して確定する。
 2. 次のいずれかの `recipe.plot` を構成する。
 
