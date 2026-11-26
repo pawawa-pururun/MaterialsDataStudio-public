@@ -97,6 +97,39 @@ def test_reviewed_reference_digest_is_required_before_assembly(tmp_path, monkeyp
         releases.assemble()
 
 
+@pytest.mark.parametrize("native_checksum", ["valid", "missing", "wrong-name", "wrong-digest"])
+def test_release_verifies_selected_native_package_and_checksum(tmp_path, monkeypatch, native_checksum):
+    version = "0.15.6"
+    targets = releases.ROOT / "packaging/desktop_targets.json"
+    (tmp_path / "packaging").mkdir()
+    (tmp_path / "packaging/desktop_targets.json").write_bytes(targets.read_bytes())
+    monkeypatch.setattr(releases, "ROOT", tmp_path)
+    monkeypatch.setattr(releases, "identity", lambda: (version, "synthetic"))
+    monkeypatch.setattr(releases, "policy", lambda: {"repository": "owner/approved"})
+    monkeypatch.setattr(releases, "validate_feed", lambda *_args: None)
+    folder = tmp_path / "release_assets"
+    folder.mkdir()
+    names = [f"MaterialsDataStudio-v{version}-Setup.exe", *releases.desktop_package_names(version).values()]
+    for name in names:
+        package = folder / name
+        package.write_bytes(name.encode("ascii"))
+        if name.endswith(".dmg") and native_checksum == "missing":
+            continue
+        checksum = "0" * 64 if name.endswith(".dmg") and native_checksum == "wrong-digest" else releases.digest(package)
+        checksum_name = "other.dmg" if name.endswith(".dmg") and native_checksum == "wrong-name" else name
+        (folder / (name + ".sha256")).write_text(f"{checksum}  {checksum_name}\n", encoding="ascii")
+    assets = [{"name": item.name, "sha256": releases.digest(item), "bytes": item.stat().st_size} for item in folder.iterdir()]
+    manifest = folder / "release-manifest.json"
+    manifest.write_text(json.dumps({"version": version, "source_commit": "synthetic", "repository": "owner/approved", "assets": assets}))
+    sums = [f"{item['sha256']}  {item['name']}\n" for item in assets]
+    (folder / "SHA256SUMS").write_text("".join(sums) + f"{releases.digest(manifest)}  {manifest.name}\n", encoding="ascii")
+    if native_checksum == "valid":
+        assert releases.verify_local(desktop=("linux", "macos"))["assets"] == assets
+    else:
+        with pytest.raises(ValueError, match=r"checksum pair mismatch: .*macos-arm64\.dmg"):
+            releases.verify_local(desktop=("linux", "macos"))
+
+
 def test_private_history_root_is_rejected(monkeypatch):
     monkeypatch.setattr(guard, "config", lambda: {"baseline_id": "reviewed"})
     monkeypatch.setattr(guard, "git", lambda *args: "old-root" if args[0] == "rev-list" else "different-root")

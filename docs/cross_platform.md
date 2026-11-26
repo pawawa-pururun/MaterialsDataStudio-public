@@ -155,13 +155,13 @@ gh workflow run desktop-packages.yml --ref main -f platform=macos
 
 `desktop-packages.yml` は選択した対象をネイティブにビルドし、チェックサムとともに
 Actions の成果物に保存します。Linux のビルドは ABI 互換性のため Ubuntu 22.04 を使います。
-配布の承認、ライセンス・対応ソース、更新フィードの扱いは [公開用ルール](maintainers/publication_policy.md) に従います。
+正式配布では [Desktop release](maintainers/releases.md) を選び、パッケージを対応ソースとともに
+リリースページへ掲載します。配布の承認は [公開用ルール](maintainers/publication_policy.md) に従います。
 
-macOSの署名・公証が未設定の場合、CIのDMGは開発検証用です。ローカルで署名済み成果物を
-用意するか、リポジトリのSecretsに`MDS_MAC_CERTIFICATE_P12_BASE64`、
-`MDS_MAC_CERTIFICATE_PASSWORD`、`MDS_MAC_SIGN_IDENTITY`を設定します。
-公証にはさらに`MDS_MAC_NOTARY_APPLE_ID`、`MDS_MAC_NOTARY_TEAM_ID`、
-`MDS_MAC_NOTARY_PASSWORD`を設定します。ワークフローは一時キーチェーンを作成し、
+署名・公証が未設定のDMGは開発検証用です。配布用DMGにはDeveloper ID Application証明書の
+`MDS_MAC_CERTIFICATE_P12_BASE64`、`MDS_MAC_CERTIFICATE_PASSWORD`、署名IDの `MDS_MAC_SIGN_IDENTITY` を
+GitHub ActionsのSecretsに設定します。公証用には `MDS_MAC_NOTARY_APPLE_ID`、`MDS_MAC_NOTARY_TEAM_ID`、
+`MDS_MAC_NOTARY_PASSWORD`（アプリ用パスワード）を設定します。ワークフローは一時キーチェーンを作成し、
 終了時に署名用ファイルとキーチェーンを削除します。
 
 ## 検証上の区別

@@ -27,6 +27,23 @@ A release is assembled and verified as a draft. It includes Setup, the full
 bilingual HTML manuals, optional COD/MP ZIPs, attribution, manifest and SHA256SUMS.
 Do not publish a draft with missing sources or a feed pointing to absent packages.
 
+### Include Linux and macOS packages
+
+In the approved publication repository, open **Actions → Desktop release → Run
+workflow** and select the new `vX.Y.Z` tag matching `packaging/publication.json`.
+Enable `build_linux` for the Linux x86_64 `.tar.gz` and `build_macos` for the
+Apple Silicon `.dmg`. Both options default to off. For macOS, configure the
+Developer ID Application signing and notarytool secrets listed in the
+[native build guide](../cross_platform_en.md).
+
+The workflow tests the tagged source on Windows with Python 3.12 and 3.14.
+It builds each selected native package on its platform and smoke-tests the
+frozen app. The DMG must be signed and notarized. Once these jobs succeed, the
+workflow packages Windows and publishes the verified draft. Each selected native
+package and its `.sha256` appear in the same Release Assets with the matching
+source archives and coverage in `SHA256SUMS`. To keep offering a native platform
+as new releases replace the latest listing, select it in each release.
+
 The full-package HTTPS feed is now used by v0.15.0 installed Windows copies. Startup checks respect opt-out. Download and apply require consent; auto-apply-on-startup stays disabled. A separate process handles bounded network operations; apply is armed in the GUI process only after all document confirmations and idle checks. Downloads are pinned to the exact version tag, rechecked against that feed and validated by the SDK. Embed bilingual NotesMarkdown in every new feed using --releaseNotes. Never embed a PAT. Source/portable copies need Setup, and pre-0.15.0 users must first upgrade manually.
 
 Before public distribution, resolve `packaging/publication.json` readiness items:
@@ -57,6 +74,19 @@ CI利用制限時もローカル検査を行いますが、PRは未マージで�
 Setup、full `.nupkg`、`releases.win.json`、ライブラリ対応ソース、MDSソース、日英HTMLマニュアル、
 任意のCOD/MP、帰属表示、manifestとSHA256SUMSをdraftで検証してから掲載します。
 ソース不足や存在しないパッケージを参照したfeedを公開しません。
+
+### Linux版とmacOS版を含める
+
+配布先に設定されたリポジトリで **Actions → Desktop release → Run workflow** を開き、
+`packaging/publication.json` の版番号に一致する新しい `vX.Y.Z` タグを選びます。
+Linux x86_64の `.tar.gz` を含めるには `build_linux`、Apple Siliconの `.dmg` を含めるには
+`build_macos` をオンにします。初期値はどちらもオフです。macOS版の配布には
+[ネイティブビルドガイド](../cross_platform.md) に沿ってDeveloper ID Application署名と公証のSecretsを設定します。
+
+タグと同じソースをWindowsのPython 3.12・3.14でテストし、選択した対象の環境でビルドと起動検査を行います。
+DMGは署名・公証が必要です。これらのジョブがすべて成功すると、Windows版をパッケージ化し、検証済みのDraftを公開します。
+選択したパッケージと `.sha256` は、対応ソースと `SHA256SUMS` とともに同じリリースのAssetsに掲載されます。
+最新版の掲載が切り替わるたびに配布を継続するには、対象のプラットフォームを各リリースで選択します。
 
 v0.15.0のWindows導入版はHTTPSのfull feedで更新します。起動時確認は無効化設定を尊重し、取得・適用には確認を挟みます。ネットワークは別プロセスで処理し、適用指示は全保存確認・実行中ジョブの確認後にGUIプロセスから行います。取得先は版付きtagへ固定して再検査し、SDKでhashを検証します。--releaseNotesで新しいfeedに日英NotesMarkdownを埋め込みます。PATは埋め込まず、起動時の自動適用は無効のままです。ソース版・portable版および0.15.0より前の版の初回更新はSetupを使います。
 

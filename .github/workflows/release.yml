@@ -1,13 +1,79 @@
-name: Windows installer release
+name: Desktop release
 on:
   workflow_dispatch:
+    inputs:
+      build_linux:
+        description: Include the Linux x86_64 tar.gz
+        type: boolean
+        default: false
+      build_macos:
+        description: Include the signed and notarized Apple Silicon DMG
+        type: boolean
+        default: false
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: mds-installer-release
   cancel-in-progress: false
 jobs:
+  check-tag:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the publication repository and exact version tag
+        run: |
+          python3 - <<'PY'
+          import os
+          from scripts.publish_release import identity, policy
+
+          if os.environ['GITHUB_REPOSITORY'] != policy()['repository']:
+              raise SystemExit('Use the approved publication repository in packaging/publication.json.')
+          if os.environ['GITHUB_REF_TYPE'] != 'tag':
+              raise SystemExit('Dispatch on the exact version tag.')
+          version, _ = identity()
+          if os.environ['GITHUB_REF_NAME'] != 'v' + version:
+              raise SystemExit('Version tag mismatch.')
+          PY
+
+  ci:
+    needs: check-tag
+    uses: ./.github/workflows/ci.yml
+    with:
+      platform: windows
+
+  linux:
+    needs: check-tag
+    if: inputs.build_linux
+    uses: ./.github/workflows/desktop-packages.yml
+    with:
+      platform: linux
+
+  macos:
+    needs: check-tag
+    if: inputs.build_macos
+    uses: ./.github/workflows/desktop-packages.yml
+    with:
+      platform: macos
+      release_candidate: true
+    secrets:
+      MDS_MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MDS_MAC_CERTIFICATE_P12_BASE64 }}
+      MDS_MAC_CERTIFICATE_PASSWORD: ${{ secrets.MDS_MAC_CERTIFICATE_PASSWORD }}
+      MDS_MAC_SIGN_IDENTITY: ${{ secrets.MDS_MAC_SIGN_IDENTITY }}
+      MDS_MAC_NOTARY_APPLE_ID: ${{ secrets.MDS_MAC_NOTARY_APPLE_ID }}
+      MDS_MAC_NOTARY_TEAM_ID: ${{ secrets.MDS_MAC_NOTARY_TEAM_ID }}
+      MDS_MAC_NOTARY_PASSWORD: ${{ secrets.MDS_MAC_NOTARY_PASSWORD }}
+
   release:
+    needs: [check-tag, ci, linux, macos]
+    if: >-
+      !cancelled() && needs.check-tag.result == 'success' && needs.ci.result == 'success' &&
+      (!inputs.build_linux || needs.linux.result == 'success') &&
+      (!inputs.build_macos || needs.macos.result == 'success')
+    permissions:
+      contents: write
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -26,17 +92,23 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
-      - name: Require a new, exact version tag
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_REF -notmatch '^refs/tags/v[0-9]+[.][0-9]+[.][0-9]+$') { throw 'Dispatch on the exact version tag.' }
-          $Version = (Get-Content packaging/publication.json -Raw | ConvertFrom-Json).version
-          if ($env:GITHUB_REF_NAME -ne "v$Version") { throw 'Version tag mismatch.' }
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --extra dev --extra mcp
       - run: uv run python -m scripts.validate_publication
       - run: uv run python -m scripts.publication_check --secrets
       - run: powershell -ExecutionPolicy Bypass -File packaging/build_windows.ps1 -Package -SkipValidation
       - run: uv run python scripts/prepare_corresponding_sources.py --bundle
+      - name: Download the Linux package and checksum
+        if: inputs.build_linux
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: MaterialsDataStudio-linux-x86_64
+          path: release_assets
+      - name: Download the macOS DMG and checksum
+        if: inputs.build_macos
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: MaterialsDataStudio-macos-arm64
+          path: release_assets
       - name: Restore reviewed reference assets
         shell: pwsh
         env:
@@ -47,4 +119,11 @@ jobs:
       - name: Verify and publish immutable release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uv run python scripts/publish_release.py publish
+          BUILD_LINUX: ${{ inputs.build_linux }}
+          BUILD_MACOS: ${{ inputs.build_macos }}
+        shell: pwsh
+        run: |
+          $ReleaseArgs = @('publish')
+          if ($env:BUILD_LINUX -eq 'true') { $ReleaseArgs += @('--desktop', 'linux') }
+          if ($env:BUILD_MACOS -eq 'true') { $ReleaseArgs += @('--desktop', 'macos') }
+          uv run python scripts/publish_release.py @ReleaseArgs

@@ -33,6 +33,8 @@
 
 | Asset | Purpose |
 |---|---|
+| `...macos-arm64.dmg` | Apple Silicon app, when included. Open it and copy the app to Applications |
+| `...linux-x86_64.tar.gz` | Linux x86_64 app, when included. Extract the archive and run `./MaterialsDataStudio` |
 | `...ApplicationSource.zip` | Matching MDS source, build scripts and synthetic test fixtures |
 | `...CorrespondingSources.zip` | Exact upstream sources, including LGPL/MPL components |
 | `...Manuals.zip` | Offline English/Japanese application and Graph Editor manuals and guides |
@@ -74,6 +76,8 @@ MDS application code is MIT; dependencies and data retain their own licenses. MD
 
 | ファイル | 用途 |
 |---|---|
+| `...macos-arm64.dmg` | 掲載時は、DMGを開いてApple Silicon版のアプリをApplicationsへコピー |
+| `...linux-x86_64.tar.gz` | 掲載時は、アーカイブを展開してLinux x86_64版を `./MaterialsDataStudio` で起動 |
 | `...ApplicationSource.zip` | 対応するMDSソース、ビルド手順、合成テストファイル |
 | `...CorrespondingSources.zip` | LGPL/MPL対象を含む、版を固定した公式ソース |
 | `...Manuals.zip` | 日英のアプリ・Graph Editorマニュアルとガイド |

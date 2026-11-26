@@ -13,6 +13,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+DESKTOP_PLATFORMS = {"linux": "linux", "darwin": "macos"}
 
 
 def digest(path: Path) -> str:
@@ -100,7 +101,13 @@ def validate_feed(folder: Path, version: str) -> None:
             raise ValueError("Update feed SHA1 mismatch")
 
 
-def assemble() -> Path:
+def desktop_package_names(version: str) -> dict[str, str]:
+    targets = json.loads((ROOT / "packaging/desktop_targets.json").read_text(encoding="utf-8"))
+    return {DESKTOP_PLATFORMS[target["platform"]]: f"MaterialsDataStudio-v{version}-{target['suffix']}"
+            for target in targets}
+
+
+def assemble(*, desktop: tuple[str, ...] = ()) -> Path:
     version, commit = identity()
     folder = ROOT / "release_assets"
     folder.mkdir(exist_ok=True)
@@ -144,6 +151,11 @@ def assemble() -> Path:
     # binaries when using a latest-only release listing.
     names += [p.name for p in folder.glob("MaterialsDataStudio-v*-*Source*.zip") if p.name not in names]
     names = [name for name in names if not name.startswith("MaterialsProject-") or policy().get("distribute_materials_project", False)]
+    if desktop:
+        packages = desktop_package_names(version)
+        for platform in desktop:
+            name = packages[platform]
+            names.extend((name, name + ".sha256"))
     items = []
     for name in sorted(set(names)):
         path = folder / name
@@ -161,11 +173,18 @@ def assemble() -> Path:
     manifest.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     sums = [i["sha256"] + "  " + i["name"] for i in items] + [digest(manifest) + "  " + manifest.name]
     (folder / "SHA256SUMS").write_text("\n".join(sums) + "\n", encoding="ascii")
-    verify_local()
+    verify_local(desktop=desktop)
     return manifest
 
 
-def verify_local() -> dict:
+def validate_checksum_pair(folder: Path, sums: dict[str, str], name: str) -> None:
+    checksum = name + ".sha256"
+    if (name not in sums or checksum not in sums
+            or (folder / checksum).read_text(encoding="ascii").split() != [sums[name], name]):
+        raise ValueError("Release checksum pair mismatch: " + name)
+
+
+def verify_local(*, desktop: tuple[str, ...] = ()) -> dict:
     folder = ROOT / "release_assets"
     manifest = json.loads((folder / "release-manifest.json").read_text(encoding="utf-8"))
     version, commit = identity()
@@ -186,8 +205,10 @@ def verify_local() -> dict:
         if Path(name).name != name or item["bytes"] != (folder / name).stat().st_size or digest(folder / name) != item["sha256"]:
             raise ValueError("Release asset mismatch: " + name)
     validate_feed(folder, version)
-    if (folder / f"MaterialsDataStudio-v{version}-Setup.exe.sha256").read_text(encoding="ascii").split() != [sums[f"MaterialsDataStudio-v{version}-Setup.exe"], f"MaterialsDataStudio-v{version}-Setup.exe"]:
-        raise ValueError("Installer checksum pair mismatch")
+    validate_checksum_pair(folder, sums, f"MaterialsDataStudio-v{version}-Setup.exe")
+    for platform, name in desktop_package_names(version).items():
+        if platform in desktop or name in sums or name + ".sha256" in sums:
+            validate_checksum_pair(folder, sums, name)
     print(f"Verified {len(expected) + 1} local release assets", flush=True)
     return manifest
 
@@ -219,7 +240,7 @@ def retain_sources(repository: str, releases: list[dict]) -> None:
                 raise ValueError("Historical corresponding-source checksum mismatch")
 
 
-def publish(*, keep_previous: bool = False) -> None:
+def publish(*, keep_previous: bool = False, desktop: tuple[str, ...] = ()) -> None:
     repository_info = target_repository()
     repository = repository_info["full_name"]
     version, commit = identity()
@@ -236,8 +257,8 @@ def publish(*, keep_previous: bool = False) -> None:
     retain_sources(repository, prior)
     build_python = ROOT / ".build-envs" / ("v" + version.replace(".", "")) / "Scripts/python.exe"
     subprocess.run([str(build_python), str(ROOT / "scripts/verify_installer.py")], cwd=ROOT, check=True)
-    assemble()
-    manifest = verify_local()
+    assemble(desktop=desktop)
+    manifest = verify_local(desktop=desktop)
     validate_signature(manifest["signature"], policy())
     notes = (ROOT / "packaging/release_notes.md").read_text(encoding="utf-8").replace("{{VERSION}}", version).replace("{{REPOSITORY}}", repository).replace("{{CHECKSUMS}}", "SHA256SUMS")
     if "## English" not in notes or "## 日本語" not in notes:
@@ -284,10 +305,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("assemble", "verify", "publish"))
     parser.add_argument("--keep-previous", action="store_true")
+    parser.add_argument("--desktop", action="append", choices=DESKTOP_PLATFORMS.values(), default=[],
+                        help="Require a native desktop package and its checksum (repeat for each platform)")
     args = parser.parse_args()
+    desktop = tuple(args.desktop)
     if args.action == "assemble":
-        assemble()
+        assemble(desktop=desktop)
     elif args.action == "verify":
-        verify_local()
+        verify_local(desktop=desktop)
     else:
-        publish(keep_previous=args.keep_previous)
+        publish(keep_previous=args.keep_previous, desktop=desktop)
