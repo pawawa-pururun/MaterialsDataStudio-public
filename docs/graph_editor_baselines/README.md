@@ -17,6 +17,17 @@ uv run --no-sync python docs/graph_editor_baselines/solid-state-v2/reproducibili
 - 探索用作例は軸・誤差・フィット・注記・等高線・画像・インセット・レイアウトを扱います。
   固体科学の作例は、Graph Editor のコマンドで XRD・MPMS・PPMS の図とデータ変換を再現します。
 
+CI rebuilds both suites from the same inputs and compares graph state and rendered
+pixels within each runner, including after saving and reopening the editable
+documents. It also compares PNG pixels from two exports of each public MCP recipe.
+CI は同じ入力から両方の作例集を再生成し、各ランナー内でグラフの状態と描画の画素を
+比較します。編集用文書の保存・再読み込み後も検証し、公開 MCP レシピごとに
+2 回書き出した PNG の画素が一致することを確認します。
+
+```sh
+uv run --no-sync pytest -q tests/tools/test_graph_examples.py tests/graph_mcp/test_graph_mcp.py
+```
+
 Results are written under `.test-tmp/graph-editor-baselines/` by default. Use
 `--output` to select another local directory. Inspect the manifest and review PDF
 alongside the editable graph documents and figures.

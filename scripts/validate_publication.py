@@ -16,7 +16,9 @@ def functional_fingerprint() -> str:
     """Bind functional results to app/tests/data, while checking publishing code separately."""
     value = hashlib.sha256(sys.version.encode())
     for name in sorted(tracked()):
-        functional = (name.startswith(("src/", "tests/", "resources/", "docs/demo_data/", "docs/igor_audit/"))
+        functional = (name.startswith(("src/", "tests/", "resources/", "docs/demo_data/", "docs/igor_audit/",
+                                       "docs/graph_mcp/examples/", "docs/graph_examples/data/"))
+                      or (name.startswith("docs/graph_editor_baselines/") and name.endswith(".py"))
                       or name in {"pyproject.toml", "uv.lock", "scripts/package_mp_index.py", "scripts/package_reference_distributions.py"})
         if functional and name != "tests/test_publication_safety.py":
             value.update(name.encode() + b"\0" + hashlib.sha256((ROOT / name).read_bytes()).digest())

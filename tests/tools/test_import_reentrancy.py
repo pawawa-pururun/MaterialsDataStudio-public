@@ -27,17 +27,26 @@ def _drop(paths: list[Path]) -> tuple[QMimeData, QDropEvent]:
     return mime, event
 
 
-@pytest.mark.parametrize("platform", ["offscreen", pytest.param("windows", marks=pytest.mark.skipif(sys.platform != "win32", reason="Windows native Qt"))])
+@pytest.mark.parametrize(
+    "platform",
+    [
+        "offscreen",
+        pytest.param("windows", marks=pytest.mark.skipif(sys.platform != "win32", reason="Windows native Qt")),
+        pytest.param("cocoa", marks=pytest.mark.skipif(sys.platform != "darwin", reason="macOS native Qt")),
+    ],
+)
 def test_real_background_workers_survive_repeated_immediate_jobs(tmp_path: Path, platform: str) -> None:
     """Isolate native crashes; use actual worker threads, not ImmediatePool."""
     script = """
 import faulthandler
+import os
 from threading import get_ident
 from PySide6.QtCore import QCoreApplication,QThreadPool,QTimer
 from PySide6.QtWidgets import QApplication,QWidget
 from materials_data_studio.ui.tasks import blocking_task
 faulthandler.enable()
 app=QApplication([])
+assert app.platformName()==os.environ["QT_QPA_PLATFORM"]
 app.setQuitOnLastWindowClosed(False)
 owner=QWidget()
 timer=QTimer(owner)

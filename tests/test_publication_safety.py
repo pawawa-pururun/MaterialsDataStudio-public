@@ -59,6 +59,22 @@ def test_functional_cache_is_invalidated_by_app_changes_not_documentation(tmp_pa
     assert validation.functional_fingerprint() != before
 
 
+@pytest.mark.parametrize("example", [
+    "docs/graph_editor_baselines/solid-state-v2/reproducibility/build_domain_baseline.py",
+    "docs/graph_mcp/examples/xrd-stack.json",
+    "docs/graph_examples/data/xrd-pressure-map.csv",
+])
+def test_functional_cache_is_invalidated_by_plot_examples(tmp_path, monkeypatch, example):
+    path = tmp_path / example
+    path.parent.mkdir(parents=True)
+    path.write_text("original")
+    monkeypatch.setattr(validation, "ROOT", tmp_path)
+    monkeypatch.setattr(validation, "tracked", lambda: [example])
+    before = validation.functional_fingerprint()
+    path.write_text("updated")
+    assert validation.functional_fingerprint() != before
+
+
 @pytest.mark.parametrize("name", ["LicenseRef-Qt-Commercial.txt", "LICENSE", "COPYING_GCC", "dragon4_LICENSE.txt", "LICENSE-MPL-2.0"])
 def test_license_names_from_real_wheel_metadata_are_preserved(name):
     assert legal_name("component/" + name)

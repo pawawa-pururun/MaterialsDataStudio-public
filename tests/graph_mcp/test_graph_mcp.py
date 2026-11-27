@@ -15,6 +15,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from PIL import Image
 from pypdf import PdfReader
 
 from materials_data_studio.graph_mcp import service
@@ -348,6 +349,41 @@ def test_mpms_ppms_examples_match_independent_values(
     if example == "ppms-cp":
         assert document.graph(name).traces[1].error_high == "root:sigma_display"
         assert figure.axes[0].containers
+
+
+@pytest.mark.parametrize(
+    "example", ["xrd-parent-comparison", "xrd-pressure-map", "xrd-stack", "mpms-zfc-fc", "ppms-cp"],
+)
+def test_documented_recipes_export_identical_plots(
+    tmp_path: Path, baseline_workspace: Path, example: str,
+) -> None:
+    request = json.loads(
+        (REPO / f"docs/graph_mcp/examples/{example}.json").read_text(encoding="utf-8")
+    )
+    recipe = FigureRecipe.model_validate(request["recipe"])
+    if example in {"xrd-parent-comparison", "xrd-pressure-map"}:
+        shutil.copytree(REPO / "docs/graph_examples/data", tmp_path / "data")
+    else:
+        for source in recipe.sources.values():
+            target = tmp_path / source.path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(baseline_workspace / source.path, target)
+    workspace = Workspace(tmp_path)
+
+    first, repeated = [
+        service.create_figure(
+            workspace, recipe, output_dir=directory, formats=["png"], dpi=100, validate_only=False,
+        )
+        for directory in (request["output_dir"], "repeated")
+    ]
+    assert first["graph"] == repeated["graph"]
+    with (
+        Image.open(tmp_path / first["files"]["png"]) as original,
+        Image.open(tmp_path / repeated["files"]["png"]) as replay,
+    ):
+        pixels = np.asarray(original.convert("RGBA"))
+        assert np.any(pixels != pixels[0, 0]), f"{example} exported a blank image"
+        np.testing.assert_array_equal(pixels, np.asarray(replay.convert("RGBA")))
 
 
 def xy_recipe(csv: str = "measurements.csv") -> dict:
