@@ -75,11 +75,17 @@
     Release and update feed unchanged during development. Before formal publication,
     require successful CI on the exact release source and verify the draft assets.
 
-    On pull requests, `test (3.12)` runs the full suite on Windows and
-    `test (3.14)` runs it on Linux. Both enforce 80% coverage. The Apple Silicon
-    job exercises Cocoa, desktop integration, packaging smoke tests, and plot
-    reproducibility. Manual Windows CI and the release workflow run both Python
-    versions on Windows. Select `macos` in manual CI to run the full macOS suite.
+    On pull requests, `test (3.14)` runs the full suite on Linux and enforces
+    80% coverage. The same job checks publication history and secrets, lint,
+    typing, manuals, and visual and performance baselines. Windows `test (3.12)`
+    exercises the registry, file associations, updates, AppContainer, and desktop
+    smoke tests. Apple Silicon exercises Cocoa and desktop smoke tests. All three
+    platforms check plot reproducibility. Include new platform-specific tests in
+    the relevant PR job in `.github/workflows/ci.yml`.
+
+    Manual Windows CI and the release workflow run the full suite with the
+    coverage gate on both Python versions. Manual Linux and macOS runs exercise
+    the full suites on their respective platforms.
 
 ## 日本語
 
@@ -97,8 +103,12 @@
 12. 各Releaseの前に、完了した依存関係スキャンを確認し、lockと実配布物の版に照合する。初回解析の完了前に空の応答が返っても安全確認済みと扱わない。影響する依存は修正し、告知・対応ソースを更新する。版情報だけでなく実装・証明書も検証し、版を上げて再ビルドする。見かけ上の完了のために警告を終了しない。
 13. 「実装して」「pushして」は通常、開発ブランチへの保存またはPR作成までとし、Release公開の許可と解釈しない。「正式配布して」「Releasesを更新して」の明示指示後に公開する。公開用mainはPRと、最新baseに対するGitHub Actionsの `test (3.12)`・`test (3.14)` 成功を必須とする。直接push・保護の回避は認めない。個人開発のため他者のレビュー承認は必須にしない。CIの利用制限時もローカル検査を行うが、PRは未マージで保持し、CI必須条件を緩めない。開発中は安定版Release・更新feedを維持する。正式配布前には配布対象ソースのCI成功とdraft配布物の検証を確認する。
 
-    PRでは `test (3.12)` がWindows、`test (3.14)` がLinuxで全テストを実行し、
-    いずれもカバレッジ80%を必須とする。Apple SiliconではCocoa、デスクトップ連携、
-    パッケージングのスモークテスト、作図の再現性を確認する。Windowsの手動CIと
-    ReleaseではWindows上で両方のPython版をテストする。macOSの全テストは手動CIで
-    `macos` を選ぶと実行できる。
+    PRではLinuxの `test (3.14)` が全テストを実行し、カバレッジ80%を必須とする。
+    公開履歴・シークレット、Lint、型、マニュアル、描画と性能の基準も同じジョブで検証する。
+    Windowsの `test (3.12)` では、レジストリ、ファイル関連付け、更新、AppContainer、
+    デスクトップのスモークテストを行う。Apple SiliconではCocoaとデスクトップの
+    スモークテストを行う。作図の再現性は3 OSすべてで確認する。OS固有のテストを
+    追加した場合は、`.github/workflows/ci.yml` の該当するPRジョブにも含める。
+
+    Windowsの手動CIとReleaseでは、両方のPython版で全テストとカバレッジ基準を
+    検証する。LinuxとmacOSの手動CIでは、それぞれのOSで全テストを実行する。
