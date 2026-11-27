@@ -6,9 +6,11 @@ import ast
 import hashlib
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
+import tarfile
 import tomllib
 import urllib.request
 import zipfile
@@ -122,23 +124,39 @@ def history_checks() -> None:
 
 def gitleaks() -> None:
     settings = config()["gitleaks"]
-    if os.name != "nt":
-        raise RuntimeError("Use the Windows publication validation environment")
+    if os.name == "nt":
+        target, extension, filename = "windows", "zip", "gitleaks.exe"
+    elif sys.platform == "linux" and platform.machine() == "x86_64":
+        target, extension, filename = "linux", "tar.gz", "gitleaks"
+    else:
+        raise RuntimeError("Use the Windows x64 or Linux x86_64 publication validation environment")
     folder = ROOT / ".tools/gitleaks"
-    executable = folder / "gitleaks.exe"
-    if not executable.is_file() or hashlib.sha256(executable.read_bytes()).hexdigest() != settings["windows_executable_sha256"]:
+    executable = folder / filename
+    executable_hash = settings[f"{target}_executable_sha256"]
+    if not executable.is_file() or hashlib.sha256(executable.read_bytes()).hexdigest() != executable_hash:
         folder.mkdir(parents=True, exist_ok=True)
-        url = f"https://github.com/gitleaks/gitleaks/releases/download/v{settings['version']}/gitleaks_{settings['version']}_windows_x64.zip"
-        archive = folder / "download.zip"
-        with urllib.request.urlopen(url, timeout=60) as response, archive.open("wb") as target:
+        version = settings["version"]
+        archive = folder / f"gitleaks_{version}_{target}_x64.{extension}"
+        url = f"https://github.com/gitleaks/gitleaks/releases/download/v{version}/{archive.name}"
+        with urllib.request.urlopen(url, timeout=60) as response, archive.open("wb") as download:
             while chunk := response.read(1024**2):
-                target.write(chunk)
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != settings["windows_archive_sha256"]:
+                download.write(chunk)
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != settings[f"{target}_archive_sha256"]:
             raise ValueError("Gitleaks archive checksum mismatch")
-        with zipfile.ZipFile(archive) as source:
-            executable.write_bytes(source.read("gitleaks.exe"))
-        if hashlib.sha256(executable.read_bytes()).hexdigest() != settings["windows_executable_sha256"]:
+        if extension == "zip":
+            with zipfile.ZipFile(archive) as source:
+                binary = source.read(filename)
+        else:
+            with tarfile.open(archive) as source:
+                member = source.extractfile(filename)
+                if member is None:
+                    raise ValueError("Gitleaks archive is missing the executable")
+                binary = member.read()
+        if hashlib.sha256(binary).hexdigest() != executable_hash:
             raise ValueError("Gitleaks executable checksum mismatch")
+        executable.write_bytes(binary)
+    if os.name != "nt":
+        executable.chmod(0o700)
     output = ROOT / ".test-tmp"
     output.mkdir(exist_ok=True)
     subprocess.run([str(executable), "git", ".", "--log-opts=--all --full-history", "--redact=100", "--no-banner",
@@ -146,29 +164,48 @@ def gitleaks() -> None:
 
 
 def check_push(remote: str, url: str) -> None:
-    expected = config()["repository"]
+    settings = config()
+    publication = settings["repository"]
+    pull_request = settings.get("pull_request_repository")
     normalized = url.removesuffix(".git").rstrip("/")
-    if normalized not in {f"https://github.com/{expected}", f"git@github.com:{expected}", f"ssh://git@github.com/{expected}"}:
+    # The separate public repository accepts only review branches over HTTPS.
+    review_push = pull_request is not None and normalized == f"https://github.com/{pull_request}"
+    if not review_push and normalized not in {f"https://github.com/{publication}", f"git@github.com:{publication}", f"ssh://git@github.com/{publication}"}:
         raise ValueError("Push destination is not the approved publication repository")
     if git("status", "--porcelain"):
         raise ValueError("Commit all reviewed changes before pushing")
-    metadata = json.loads(subprocess.check_output(["gh", "api", f"repos/{expected}"], text=True, encoding="utf-8"))
-    if metadata["full_name"] != expected or (not metadata["private"] and not config()["allow_public_repository"]):
-        raise ValueError("Repository visibility is not approved by the publication policy")
     for line in sys.stdin:
         if not line.strip():
             continue
         local_ref, local_sha, remote_ref, remote_sha = line.split()
         if set(local_sha) == {"0"}:
             raise ValueError("Ref deletion is not allowed by the publication hook")
+        if review_push and (not remote_ref.startswith("refs/heads/") or remote_ref == "refs/heads/main"
+                            or not local_ref.startswith("refs/heads/") or local_sha != git("rev-parse", "HEAD")):
+            raise ValueError("Only the checked-out commit may be pushed to a pull request branch")
         if remote_ref.startswith("refs/tags/") and set(remote_sha) != {"0"} and local_sha != remote_sha:
             raise ValueError("Published tag updates are forbidden")
-        if local_ref.startswith("refs/tags/") and local_ref != "refs/tags/v" + config()["version"]:
+        if local_ref.startswith("refs/tags/") and local_ref != "refs/tags/v" + settings["version"]:
             raise ValueError("Only the current version tag may be pushed")
     result = json.loads(VALIDATION.read_text(encoding="utf-8"))
     if result.get("fingerprint") != fingerprint() or not result.get("passed"):
         raise ValueError("Run validate_publication.py for the current content before push")
-    print(f"Approved push target: {remote}: {expected} ({metadata['visibility']})")
+    if review_push:
+        if not settings["allow_public_repository"]:
+            raise ValueError("Public pull request repository is not approved")
+        # An unauthenticated upload-pack advertisement confirms public read access.
+        # Reject moved repositories, including an owner redirect, and HTML responses.
+        endpoint = normalized + ".git/info/refs?service=git-upload-pack"
+        with urllib.request.urlopen(endpoint, timeout=15) as response:
+            if (response.geturl() != endpoint or response.headers.get_content_type() != "application/x-git-upload-pack-advertisement"
+                    or b"# service=git-upload-pack\n" not in response.read(128)):
+                raise ValueError("The approved public pull request repository did not advertise Git refs")
+        print(f"Approved push target: {remote}: {pull_request} (public pull request branches)")
+    else:
+        metadata = json.loads(subprocess.check_output(["gh", "api", f"repos/{publication}"], text=True, encoding="utf-8"))
+        if metadata["full_name"] != publication or (not metadata["private"] and not settings["allow_public_repository"]):
+            raise ValueError("Repository visibility is not approved by the publication policy")
+        print(f"Approved push target: {remote}: {publication} ({metadata['visibility']})")
 
 
 def main() -> None:

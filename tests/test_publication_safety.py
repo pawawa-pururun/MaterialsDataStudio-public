@@ -1,8 +1,12 @@
 """Publication boundaries must fail before remote mutation or unsafe extraction."""
 from __future__ import annotations
 
+import io
 import json
+import sys
 import zipfile
+from contextlib import nullcontext
+from email.message import Message
 
 import pytest
 from scripts import prepare_reference_notices as notices
@@ -90,6 +94,63 @@ def test_wrong_push_remote_stops_before_any_remote_call(monkeypatch):
     monkeypatch.setattr(guard.subprocess, "check_output", lambda *_a, **_kw: pytest.fail("No network is allowed"))
     with pytest.raises(ValueError, match="destination"):
         guard.check_push("origin", "https://github.com/owner/private-history.git")
+
+
+@pytest.fixture
+def review_push(monkeypatch, tmp_path):
+    repository = "https://github.com/owner/review"
+    endpoint = repository + ".git/info/refs?service=git-upload-pack"
+    head = "a" * 40
+    record = tmp_path / "validation.json"
+    record.write_text(json.dumps({"passed": True, "fingerprint": "validated"}))
+    monkeypatch.setattr(guard, "VALIDATION", record)
+    monkeypatch.setattr(guard, "fingerprint", lambda: "validated")
+    monkeypatch.setattr(guard, "config", lambda: {
+        "repository": "owner/releases",
+        "pull_request_repository": "owner/review",
+        "allow_public_repository": True,
+    })
+    monkeypatch.setattr(guard, "git", lambda command, *args: head if command == "rev-parse" else "")
+    return repository, endpoint, head
+
+
+@pytest.mark.parametrize("ref", ["refs/heads/main", "refs/tags/v1.0"])
+def test_review_push_rejects_main_and_tags_before_network(monkeypatch, review_push, ref):
+    repository, _, head = review_push
+    monkeypatch.setattr(sys, "stdin", io.StringIO(f"refs/heads/review {head} {ref} {'0' * 40}\n"))
+    monkeypatch.setattr(guard.urllib.request, "urlopen", lambda *_a, **_kw: pytest.fail("No remote check expected"))
+    with pytest.raises(ValueError, match="pull request branch"):
+        guard.check_push("origin", repository + ".git")
+
+
+@pytest.mark.parametrize("redirected", [False, True])
+def test_review_push_checks_public_git_endpoint(monkeypatch, review_push, redirected):
+    repository, endpoint, head = review_push
+    ref = "refs/heads/review"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(f"{ref} {head} {ref} {'0' * 40}\n"))
+    headers = Message()
+    headers["content-type"] = "application/x-git-upload-pack-advertisement"
+
+    class Response:
+        def __init__(self):
+            self.headers = headers
+
+        def geturl(self):
+            return endpoint.replace("/owner/", "/other/") if redirected else endpoint
+
+        def read(self, size):
+            return b"001e# service=git-upload-pack\n0000"
+
+    def open_public_endpoint(url, *, timeout):
+        assert url == endpoint
+        return nullcontext(Response())
+
+    monkeypatch.setattr(guard.urllib.request, "urlopen", open_public_endpoint)
+    if redirected:
+        with pytest.raises(ValueError, match="did not advertise Git refs"):
+            guard.check_push("origin", repository + ".git")
+    else:
+        guard.check_push("origin", repository + ".git")
 
 
 def test_publisher_rejects_development_tree_before_git_or_network(tmp_path, monkeypatch):
