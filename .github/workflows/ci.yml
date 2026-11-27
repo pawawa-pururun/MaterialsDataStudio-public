@@ -17,81 +17,101 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform || 'all' }}
   cancel-in-progress: true
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+  QT_QPA_PLATFORM: offscreen
+  PYTHONUTF8: '1'
 jobs:
   test:
-    name: test (${{ matrix.python }})
-    if: github.event_name == 'pull_request' || inputs.platform == 'windows'
-    runs-on: windows-2022
+    name: ${{ inputs.platform == 'linux' && 'Native tests (linux)' || format('test ({0})', matrix.python) }}
+    if: (github.event_name == 'pull_request' && !inputs.platform) || inputs.platform == 'windows' || inputs.platform == 'linux'
+    # PRs test the oldest supported Python on Windows and the newest on Linux.
+    # Windows dispatches and release CI test both versions on Windows.
+    runs-on: ${{ (inputs.platform == 'linux' || (!inputs.platform && matrix.python == '3.14')) && 'ubuntu-26.04' || 'windows-2022' }}
     timeout-minutes: 35
     env:
       UV_PYTHON: ${{ matrix.python }}
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.12', '3.14']
+        python: ${{ fromJSON(inputs.platform == 'linux' && '["3.12"]' || '["3.12", "3.14"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ matrix.python == '3.12' && '0' || '1' }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: '0.8.15'
           enable-cache: true
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ matrix.python }}
-      - run: uv sync --frozen --extra dev --extra mcp
-      - run: uv run python -m scripts.publication_check --secrets
-      - run: uv run pytest --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 --maxfail=1 -q
-        env:
-          QT_QPA_PLATFORM: offscreen
-      - run: uv run ruff check .
-      - run: uv run pyright
-      - run: uv run pyright --project pyright-tests.json
-      - run: uv run python scripts/build_manual.py
-      - run: uv run python scripts/check_visual_performance.py
-
-  native-tests:
-    name: Native tests (${{ inputs.platform || 'linux' }})
-    if: github.event_name == 'pull_request' || inputs.platform == 'linux' || inputs.platform == 'macos'
-    runs-on: ${{ inputs.platform == 'macos' && 'macos-latest' || 'ubuntu-26.04' }}
-    timeout-minutes: 60
-    env:
-      UV_PYTHON: '3.12'
-      OPENBLAS_NUM_THREADS: '1'
-      OMP_NUM_THREADS: '1'
-      QT_QPA_PLATFORM: offscreen
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: '0.8.15'
-          enable-cache: true
-          cache-suffix: ${{ runner.os == 'Linux' && 'ubuntu-26.04' || 'macos-latest' }}
+          cache-suffix: ${{ runner.os == 'Linux' && 'ubuntu-26.04-' || '' }}py${{ matrix.python }}
       - name: Linux Qt runtime libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: uv sync --frozen --extra dev --extra mcp
+      - name: Check publication files and history for secrets
+        if: runner.os == 'Windows' && matrix.python == '3.12'
+        run: uv run --no-sync python -m scripts.publication_check --secrets
+      - name: Check publication files and history
+        if: inputs.platform == 'linux'
+        run: uv run --no-sync python -m scripts.publication_check
+      - name: Full tests and coverage
+        run: uv run --no-sync pytest -q --maxfail=1 --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 -o faulthandler_timeout=120
+      - run: uv run --no-sync ruff check .
+        if: matrix.python == '3.12'
+      - run: uv run --no-sync pyright
+        if: matrix.python == '3.12'
+      - run: uv run --no-sync pyright --project pyright-tests.json
+        if: matrix.python == '3.12'
+      - run: uv run --no-sync python scripts/build_manual.py
+        if: runner.os == 'Windows' && matrix.python == '3.12'
+      - name: Visual and performance baselines
+        if: matrix.python == '3.12'
+        run: uv run --no-sync python scripts/check_visual_performance.py --report .test-tmp/visual-performance.json
+
+  native-macos:
+    name: Native tests (macos)
+    if: (github.event_name == 'pull_request' && !inputs.platform) || inputs.platform == 'macos'
+    runs-on: macos-15
+    timeout-minutes: ${{ inputs.platform == 'macos' && 60 || 20 }}
+    env:
+      UV_PYTHON: '3.12'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: ${{ inputs.platform == 'macos' && '0' || '1' }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.8.15'
+          enable-cache: true
+          cache-suffix: macos-15-py3.12
       - name: Verify Apple Silicon runner
-        if: runner.os == 'macOS'
         run: test "$(uname -m)" = arm64
       - run: uv sync --frozen --extra dev --extra mcp
-      - run: uv run --no-sync python -m scripts.publication_check
-      - name: Linux tests and coverage
-        if: runner.os == 'Linux'
-        run: uv run --no-sync pytest -q --maxfail=1 --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 -o faulthandler_timeout=120
-      - name: macOS tests
-        if: runner.os == 'macOS'
+      - name: Cocoa, desktop integration and plot reproducibility
+        if: '!inputs.platform'
+        run: >-
+          uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120
+          tests/core/test_gui_smoke.py
+          tests/core/test_packaging_smoke.py
+          tests/core/test_platform_support.py
+          tests/core/test_runtime_cache.py
+          tests/core/test_matplotlib_cache.py
+          tests/gui/test_main_file_drop.py
+          tests/integrations/test_igor.py
+          tests/test_desktop_build.py
+          tests/test_wheel_resources.py
+          tests/tools/test_import_reentrancy.py
+          tests/tools/test_graph_examples.py
+          tests/graph_mcp
+          tests/plotting
+      - name: Check publication files and history
+        if: inputs.platform == 'macos'
+        run: uv run --no-sync python -m scripts.publication_check
+      - name: Full macOS suite
+        if: inputs.platform == 'macos'
         run: uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120
-      - name: Linux lint, type checks and performance
-        if: runner.os == 'Linux'
-        run: |
-          uv run --no-sync ruff check .
-          uv run --no-sync pyright
-          uv run --no-sync pyright --project pyright-tests.json
-          uv run --no-sync python scripts/check_visual_performance.py --report .test-tmp/visual-performance.json

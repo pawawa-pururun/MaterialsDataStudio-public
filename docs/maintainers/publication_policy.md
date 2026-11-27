@@ -2,8 +2,10 @@
 
 ## English
 
-1. **Destination and visibility.** Only `tanabe0719/MaterialsDataStudio-public`
-   is the default publication destination. Public visibility was explicitly authorized on 2026-10-30 after final checks, with MP database assets withdrawn and unsigned distribution disclosed. A normal user request
+1. **Destination and visibility.** Send pull requests to
+   `pawawa-pururun/MaterialsDataStudio-public` from a review branch over HTTPS.
+   The configured release destination is `tanabe0719/MaterialsDataStudio-public`.
+   Public visibility was explicitly authorized on 2026-10-30 after final checks, with MP database assets withdrawn and unsigned distribution disclosed. A normal user request
    to push does not authorize changing visibility. Do not add its remote to the
    private-history development checkout.
 2. **History boundary.** Export the allowlisted current working files with
@@ -16,7 +18,8 @@
    run `python -m scripts.validate_publication`; its cached result is bound to the
    content fingerprint. The pre-push hook checks the exact destination, clean
    history, forbidden files, workflow SHA pins, bilingual documentation, validation
-   fingerprint and a pinned Gitleaks scan. Do not suppress errors.
+   fingerprint and a pinned Gitleaks scan. The hook supports Windows x64 and
+   Linux x86_64. Do not suppress errors.
 4. **Checks.** The validation runner executes the full tests (reusing a hashed successful result only when application/test/data/Python inputs are unchanged), Ruff, source/test
    Pyright, static publication checks and documentation links. New behavior needs
    relevant tests. A GitHub quota block may use the same successful local checks;
@@ -72,11 +75,17 @@
     Release and update feed unchanged during development. Before formal publication,
     require successful CI on the exact release source and verify the draft assets.
 
+    On pull requests, `test (3.12)` runs the full suite on Windows and
+    `test (3.14)` runs it on Linux. Both enforce 80% coverage. The Apple Silicon
+    job exercises Cocoa, desktop integration, packaging smoke tests, and plot
+    reproducibility. Manual Windows CI and the release workflow run both Python
+    versions on Windows. Select `macos` in manual CI to run the full macOS suite.
+
 ## 日本語
 
-1. 既定の送信先は `tanabe0719/MaterialsDataStudio-public` のみ。2026-10-30に最終検査後のpublic化が明示許可された（MPのDB配布は撤回、未署名と明記）。通常のpush・Release指示を可視性変更の許可と解釈しない。開発履歴のあるツリーに公開用remoteを追加しない。
+1. PRはHTTPSでレビューブランチをpushし、`pawawa-pururun/MaterialsDataStudio-public` に送る。Releaseの設定先は `tanabe0719/MaterialsDataStudio-public`。2026-10-30に最終検査後のpublic化が明示許可された（MPのDB配布は撤回、未署名と明記）。通常のpush・Release指示を可視性変更の許可と解釈しない。開発履歴のあるツリーに公開用remoteを追加しない。
 2. allowlist方式のexportを使用し、`.publication-root` を持つ単一のroot commitから履歴を始める。以降は通常のcommitを重ねる。私的履歴・旧タグ・監査原文・研究データを持ち込まない。mirror/all/force、タグ上書き、hook回避は禁止。
-3. `.githooks` を設定し、`scripts/validate_publication.py` を実行する。内容fingerprintが一致する結果だけ再利用する。pre-pushで送信先・履歴・禁止ファイル・workflow SHA・日英文書・検証記録・Gitleaksを確認する。失敗を無視しない。
+3. `.githooks` を設定し、`scripts/validate_publication.py` を実行する。内容fingerprintが一致する結果だけ再利用する。pre-pushで送信先・履歴・禁止ファイル・workflow SHA・日英文書・検証記録・Gitleaksを確認する。フックはWindows x64とLinux x86_64に対応する。失敗を無視しない。
 4. 全テスト（実装・テスト・データ・Pythonのhashが不変なら成功記録を再利用）、Ruff、実装・テストのPyright、公開用検査と文書リンクを確認する。CIのusage limit時もローカル検査を完了し、CI成功とは報告しない。Gitのhookは利用者が回避できるため、所有者のレビューとサーバー側保護を併用する。
 5. 実ユーザー名・端末名・私的パス、未公開測定値、研究Procedure、セッション、鍵、token、キャッシュ、DB原本、環境、未確認画像を含めない。合成fixtureだけを明示許可する。画像の変更時はプライバシーを確認する。
 6. 著作権表示・ライセンスとバイナリに対応するソースを保持し、LGPLの差替え・再ビルドの権利を妨げない。COD/MPはMITと別条件。MP再作成時は元licenseを全件確認し、BY-NC・不明・GNoMEを除外する。
@@ -87,3 +96,9 @@
 11. public化前にMP現行規約の確認・署名方針・GitHub保護・再監査を終える。根拠なくreadinessを完了にしない。可視性の変更には別の明示指示が必要。
 12. 各Releaseの前に、完了した依存関係スキャンを確認し、lockと実配布物の版に照合する。初回解析の完了前に空の応答が返っても安全確認済みと扱わない。影響する依存は修正し、告知・対応ソースを更新する。版情報だけでなく実装・証明書も検証し、版を上げて再ビルドする。見かけ上の完了のために警告を終了しない。
 13. 「実装して」「pushして」は通常、開発ブランチへの保存またはPR作成までとし、Release公開の許可と解釈しない。「正式配布して」「Releasesを更新して」の明示指示後に公開する。公開用mainはPRと、最新baseに対するGitHub Actionsの `test (3.12)`・`test (3.14)` 成功を必須とする。直接push・保護の回避は認めない。個人開発のため他者のレビュー承認は必須にしない。CIの利用制限時もローカル検査を行うが、PRは未マージで保持し、CI必須条件を緩めない。開発中は安定版Release・更新feedを維持する。正式配布前には配布対象ソースのCI成功とdraft配布物の検証を確認する。
+
+    PRでは `test (3.12)` がWindows、`test (3.14)` がLinuxで全テストを実行し、
+    いずれもカバレッジ80%を必須とする。Apple SiliconではCocoa、デスクトップ連携、
+    パッケージングのスモークテスト、作図の再現性を確認する。Windowsの手動CIと
+    ReleaseではWindows上で両方のPython版をテストする。macOSの全テストは手動CIで
+    `macos` を選ぶと実行できる。

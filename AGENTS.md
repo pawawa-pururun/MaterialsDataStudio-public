@@ -3,7 +3,9 @@
 These instructions apply to this tree and its publication checkout.
 この作業ツリーと公開用checkoutに適用する。
 
-- The default publication destination is `tanabe0719/MaterialsDataStudio-public`.
+- Send pull requests to `pawawa-pururun/MaterialsDataStudio-public` from a
+  review branch. The configured release destination is
+  `tanabe0719/MaterialsDataStudio-public`.
   Keep it **private** until the user explicitly requests a visibility change.
   Never change visibility as part of a normal push or release.
 - If `.publication-root` is absent, this is the development tree with private
