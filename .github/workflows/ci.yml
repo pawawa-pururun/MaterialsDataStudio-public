@@ -24,16 +24,31 @@ env:
   OMP_NUM_THREADS: '1'
   QT_QPA_PLATFORM: offscreen
   PYTHONUTF8: '1'
+  DESKTOP_PR_TESTS: >-
+    tests/core/test_gui_smoke.py
+    tests/core/test_packaging_smoke.py
+    tests/core/test_platform_support.py
+    tests/core/test_runtime_cache.py
+    tests/core/test_matplotlib_cache.py
+    tests/gui/test_main_file_drop.py
+    tests/integrations/test_igor.py
+    tests/test_desktop_build.py
+    tests/test_wheel_resources.py
+    tests/tools/test_import_reentrancy.py
+    tests/tools/test_graph_examples.py
+    tests/graph_mcp
+    tests/plotting
 jobs:
   test:
     name: ${{ inputs.platform == 'linux' && 'Native tests (linux)' || format('test ({0})', matrix.python) }}
     if: (github.event_name == 'pull_request' && !inputs.platform) || inputs.platform == 'windows' || inputs.platform == 'linux'
-    # PRs test the oldest supported Python on Windows and the newest on Linux.
-    # Windows dispatches and release CI test both versions on Windows.
+    # PRs run native integration on Windows and the full suite on Linux.
+    # Manual and release CI retain the full suites on the selected platforms.
     runs-on: ${{ (inputs.platform == 'linux' || (!inputs.platform && matrix.python == '3.14')) && 'ubuntu-26.04' || 'windows-2022' }}
     timeout-minutes: 35
     env:
       UV_PYTHON: ${{ matrix.python }}
+      REPOSITORY_CHECKS: ${{ matrix.python == (inputs.platform && '3.12' || '3.14') }}
     strategy:
       fail-fast: false
       matrix:
@@ -41,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: ${{ matrix.python == '3.12' && '0' || '1' }}
+          fetch-depth: ${{ env.REPOSITORY_CHECKS == 'true' && '0' || '1' }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
@@ -52,24 +67,48 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
       - run: uv sync --frozen --extra dev --extra mcp
-      - name: Check publication files and history for secrets
-        if: runner.os == 'Windows' && matrix.python == '3.12'
-        run: uv run --no-sync python -m scripts.publication_check --secrets
       - name: Check publication files and history
-        if: inputs.platform == 'linux'
-        run: uv run --no-sync python -m scripts.publication_check
-      - name: Full tests and coverage
-        run: uv run --no-sync pytest -q --maxfail=1 --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 -o faulthandler_timeout=120
+        if: env.REPOSITORY_CHECKS == 'true'
+        run: uv run --no-sync python -m scripts.publication_check ${{ inputs.platform != 'linux' && '--secrets' || '' }}
       - run: uv run --no-sync ruff check .
-        if: matrix.python == '3.12'
+        if: env.REPOSITORY_CHECKS == 'true'
       - run: uv run --no-sync pyright
-        if: matrix.python == '3.12'
+        if: env.REPOSITORY_CHECKS == 'true'
       - run: uv run --no-sync pyright --project pyright-tests.json
-        if: matrix.python == '3.12'
+        if: env.REPOSITORY_CHECKS == 'true'
       - run: uv run --no-sync python scripts/build_manual.py
-        if: runner.os == 'Windows' && matrix.python == '3.12'
+        if: env.REPOSITORY_CHECKS == 'true' && inputs.platform != 'linux'
+      - name: Windows desktop integration, AppContainer and plot reproducibility
+        if: runner.os == 'Windows' && !inputs.platform
+        run: >-
+          uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120
+          ${{ env.DESKTOP_PR_TESTS }}
+          tests/gui/test_updates.py
+          tests/integrations/test_update_native.py
+          tests/test_installer_bootstrap.py
+          tests/test_stability_v097.py::test_windows_process_query_never_signals
+          tests/test_test_entrypoints.py
+          tests/test_windows_file_registration.py
+          tests/tools/test_command_workspace.py::test_worker_explicit_run_and_failure
+          tests/tools/test_command_workspace.py::test_ui_python_worker_commit_and_stop
+          tests/tools/test_command_workspace.py::test_worker_exception_and_concurrent_edits_are_not_committed
+          tests/tools/test_graph_analysis_menus.py::test_analysis_commands_in_isolated_python_worker
+          tests/tools/test_graph_editing_h5xp.py::test_h5xp_no_clobber_at_atomic_commit
+          tests/tools/test_igor_conversion_isolation.py
+          tests/tools/test_igor_discovery.py::test_discovery_operations_in_appcontainer
+          tests/tools/test_igor_extended_fidelity.py::test_new_context_in_isolated_worker
+          tests/tools/test_igor_macro_execution.py
+          tests/tools/test_igor_p2.py::test_p2_operations_in_appcontainer
+          tests/tools/test_igor_realistic_profile.py::test_large_invented_profile_runs_in_appcontainer_with_two_phase_ticks
+          tests/tools/test_procedure_interaction.py::test_native_interactive_procedure_roundtrip_and_cancel
+          tests/tools/test_pxp_revision094.py::test_os_boundary_files_network_process_and_clipboard
+          tests/tools/test_pxp_revision095.py::test_help_examples_run_in_actual_sandbox
+          tests/tools/test_sandbox_paths.py
+      - name: Full tests and coverage
+        if: runner.os == 'Linux' || inputs.platform == 'windows'
+        run: uv run --no-sync pytest -q --maxfail=1 --cov=materials_data_studio --cov-report=term-missing --cov-fail-under=80 -o faulthandler_timeout=120
       - name: Visual and performance baselines
-        if: matrix.python == '3.12'
+        if: env.REPOSITORY_CHECKS == 'true'
         run: uv run --no-sync python scripts/check_visual_performance.py --report .test-tmp/visual-performance.json
 
   native-macos:
@@ -94,21 +133,7 @@ jobs:
       - run: uv sync --frozen --extra dev --extra mcp
       - name: Cocoa, desktop integration and plot reproducibility
         if: '!inputs.platform'
-        run: >-
-          uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120
-          tests/core/test_gui_smoke.py
-          tests/core/test_packaging_smoke.py
-          tests/core/test_platform_support.py
-          tests/core/test_runtime_cache.py
-          tests/core/test_matplotlib_cache.py
-          tests/gui/test_main_file_drop.py
-          tests/integrations/test_igor.py
-          tests/test_desktop_build.py
-          tests/test_wheel_resources.py
-          tests/tools/test_import_reentrancy.py
-          tests/tools/test_graph_examples.py
-          tests/graph_mcp
-          tests/plotting
+        run: uv run --no-sync pytest -q --maxfail=1 -o faulthandler_timeout=120 ${{ env.DESKTOP_PR_TESTS }}
       - name: Check publication files and history
         if: inputs.platform == 'macos'
         run: uv run --no-sync python -m scripts.publication_check
